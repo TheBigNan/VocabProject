@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+*.tsbuildinfo
+.DS_Store
+client/vite.config.js
+client/vite.config.d.ts
+yarn-error.log
+server/uploads/
