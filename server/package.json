@@ -9,7 +9,8 @@
     "start": "node dist/index.js",
     "seed": "tsx src/seed.ts",
     "unseed": "tsx src/unseed.ts",
-    "seed:preview": "tsx src/seedPreview.ts"
+    "seed:preview": "tsx src/seedPreview.ts",
+    "add-list": "tsx src/addList.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

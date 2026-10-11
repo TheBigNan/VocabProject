@@ -10,7 +10,7 @@ VocabProject/
   server/    Express API — talks to Firebase Admin SDK (Firestore for metadata/stats, Storage for PDFs)
 ```
 
-There's no public "submit a list" page — lists are added directly by you, either with the seed script (`yarn seed` in `server/`, see `server/src/seed.ts`) or by writing to Firestore/Storage directly. The API only exposes read endpoints (`GET /api/lists`, `GET /api/lists/preview`, `GET /api/lists/:id/download`, `GET /api/stats`, `POST /api/stats/visit`).
+There's no public "submit a list" page — real lists are added by you with the `yarn add-list` script (see "Adding a real list" below). The API only exposes read endpoints (`GET /api/lists`, `GET /api/lists/preview`, `GET /api/lists/:id/download`, `GET /api/stats`, `POST /api/stats/visit`).
 
 **The vocabulary library requires logging in.** `GET /api/lists` (the full library) and downloading any list both require a valid Firebase login — logged-out visitors on the View Lists page instead see one sample list (`GET /api/lists/preview`, which stays public) plus a "Log In / Sign Up" prompt. See "Set up Authentication" below.
 
@@ -32,7 +32,7 @@ cp .env.example .env
 
 Edit `server/.env`:
 - `FIREBASE_SERVICE_ACCOUNT` — paste the **entire contents** of the service account JSON file as a single line.
-- `FIREBASE_STORAGE_BUCKET` — leave this **blank** for now. Without it, PDFs saved via the seed script go to `server/uploads/` on local disk and are served from there — viewing, downloading, and stats all work exactly the same. Once you upgrade to Blaze and enable Storage, fill this in and restart the server to switch to Firebase Storage automatically.
+- `FIREBASE_STORAGE_BUCKET` — leave this **blank** for now. Without it, PDFs you add go to `server/uploads/` on local disk and are served from there — viewing, downloading, and stats all work exactly the same. Once you upgrade to Blaze and enable Storage, fill this in and restart the server to switch to Firebase Storage automatically.
 - `PORT` — defaults to 5050.
 
 Install and run:
@@ -76,6 +76,23 @@ yarn seed:preview
 ```
 
 This is safe to re-run any time (e.g. to replace the sample content) — it replaces whichever list was previously flagged as the preview.
+
+## 6. Adding a real list
+
+```
+cd server
+yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--date YYYY-MM-DD]
+```
+
+Example:
+```
+yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction"
+```
+
+- `--date` is optional and defaults to today.
+- `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Lists page instead of getting its own.
+- It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Lists page for logged-in users.
+- There's no delete/edit command yet — do that directly in the Firebase console (Firestore for the `lists` collection, Storage for the file) if you need to remove or fix one.
 
 ## Notes / things you can adjust later
 
