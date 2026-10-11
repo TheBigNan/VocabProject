@@ -457,6 +457,20 @@ a {
   border-radius: 8px;
 }
 
-.flashcard-delete {
+.flashcard-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.flashcard-actions .link-button {
   font-size: 0.8rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-actions .btn {
+  flex: 1;
 }

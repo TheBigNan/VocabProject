@@ -5,6 +5,7 @@ import {
   createFlashcard,
   deleteFlashcard,
   fetchFlashcards,
+  updateFlashcard,
 } from "../api";
 import type { Flashcard } from "../types";
 import { useAuth } from "../auth/AuthContext";
@@ -14,9 +15,11 @@ type CardType = "definition" | "picture";
 
 function FlashcardTile({
   card,
+  onEdit,
   onDelete,
 }: {
   card: Flashcard;
+  onEdit: (card: Flashcard) => void;
   onDelete: (id: string) => void;
 }) {
   const [flipped, setFlipped] = useState(false);
@@ -38,13 +41,22 @@ function FlashcardTile({
           )}
         </div>
       </div>
-      <button
-        type="button"
-        className="link-button flashcard-delete"
-        onClick={() => onDelete(card.id)}
-      >
-        Delete
-      </button>
+      <div className="flashcard-actions">
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => onEdit(card)}
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => onDelete(card.id)}
+        >
+          Delete
+        </button>
+      </div>
     </div>
   );
 }
@@ -54,6 +66,8 @@ export default function StudyTools() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [status, setStatus] = useState<Status>("loading");
 
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingOriginalType, setEditingOriginalType] = useState<CardType | null>(null);
   const [word, setWord] = useState("");
   const [cardType, setCardType] = useState<CardType>("definition");
   const [definition, setDefinition] = useState("");
@@ -81,6 +95,31 @@ export default function StudyTools() {
     loadCards();
   }, [user]);
 
+  function resetForm() {
+    setEditingId(null);
+    setEditingOriginalType(null);
+    setWord("");
+    setCardType("definition");
+    setDefinition("");
+    setImage(null);
+    setFileInputKey((k) => k + 1);
+    setFormError("");
+  }
+
+  function startEdit(card: Flashcard) {
+    setEditingId(card.id);
+    setEditingOriginalType(card.cardType);
+    setWord(card.word);
+    setCardType(card.cardType);
+    setDefinition(card.definition ?? "");
+    setImage(null);
+    setFileInputKey((k) => k + 1);
+    setFormError("");
+  }
+
+  const keepingExistingPicture =
+    cardType === "picture" && editingId !== null && editingOriginalType === "picture";
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!user) return;
@@ -94,7 +133,7 @@ export default function StudyTools() {
       setFormError("Please enter a definition.");
       return;
     }
-    if (cardType === "picture" && !image) {
+    if (cardType === "picture" && !image && !keepingExistingPicture) {
       setFormError("Please choose a picture.");
       return;
     }
@@ -102,16 +141,18 @@ export default function StudyTools() {
     setSubmitting(true);
     try {
       const token = await user.getIdToken();
-      await createFlashcard(token, {
+      const input = {
         word: word.trim(),
         cardType,
         definition: cardType === "definition" ? definition.trim() : undefined,
         image: cardType === "picture" ? image ?? undefined : undefined,
-      });
-      setWord("");
-      setDefinition("");
-      setImage(null);
-      setFileInputKey((k) => k + 1);
+      };
+      if (editingId) {
+        await updateFlashcard(token, editingId, input);
+      } else {
+        await createFlashcard(token, input);
+      }
+      resetForm();
       loadCards();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Something went wrong.");
@@ -122,6 +163,7 @@ export default function StudyTools() {
 
   async function handleDelete(id: string) {
     if (!user) return;
+    if (editingId === id) resetForm();
     setCards((prev) => prev.filter((c) => c.id !== id));
     try {
       const token = await user.getIdToken();
@@ -200,7 +242,10 @@ export default function StudyTools() {
           </label>
         ) : (
           <label className="form-field">
-            <span>Picture</span>
+            <span>
+              Picture
+              {keepingExistingPicture && " (leave blank to keep the current one)"}
+            </span>
             <input
               key={fileInputKey}
               type="file"
@@ -210,9 +255,27 @@ export default function StudyTools() {
           </label>
         )}
 
-        <button type="submit" className="btn btn-primary" disabled={submitting}>
-          {submitting ? "Adding..." : "Add Flashcard"}
-        </button>
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary" disabled={submitting}>
+            {submitting
+              ? editingId
+                ? "Saving..."
+                : "Adding..."
+              : editingId
+                ? "Save Changes"
+                : "Add Flashcard"}
+          </button>
+          {editingId && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={resetForm}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
 
         {formError && <p className="form-message form-error">{formError}</p>}
       </form>
@@ -235,7 +298,12 @@ export default function StudyTools() {
         {status === "loaded" && cards.length > 0 && (
           <div className="flashcard-grid">
             {cards.map((card) => (
-              <FlashcardTile key={card.id} card={card} onDelete={handleDelete} />
+              <FlashcardTile
+                key={card.id}
+                card={card}
+                onEdit={startEdit}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}

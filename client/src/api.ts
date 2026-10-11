@@ -85,6 +85,30 @@ export async function createFlashcard(
   return res.json();
 }
 
+export async function updateFlashcard(
+  idToken: string,
+  id: string,
+  input: CreateFlashcardInput
+): Promise<Flashcard> {
+  const formData = new FormData();
+  formData.append("word", input.word);
+  formData.append("cardType", input.cardType);
+  if (input.definition) formData.append("definition", input.definition);
+  if (input.image) formData.append("image", input.image);
+
+  const res = await fetch(`${API_URL}/api/flashcards/${id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to update flashcard.");
+  }
+  return res.json();
+}
+
 export async function deleteFlashcard(idToken: string, id: string): Promise<void> {
   const res = await fetch(`${API_URL}/api/flashcards/${id}`, {
     method: "DELETE",
