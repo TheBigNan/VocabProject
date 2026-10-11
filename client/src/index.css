@@ -390,3 +390,73 @@ a {
   font-size: 0.85rem;
   border-top: 1px solid var(--color-border);
 }
+
+.flashcard-section {
+  margin-top: 2.5rem;
+}
+
+.flashcard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.flashcard-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.flashcard {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.flashcard-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow);
+  backface-visibility: hidden;
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: var(--color-ink);
+}
+
+.flashcard-back {
+  transform: rotateY(180deg);
+  color: var(--color-accent);
+}
+
+.flashcard-flipped .flashcard-front {
+  transform: rotateY(180deg);
+}
+
+.flashcard-flipped .flashcard-back {
+  transform: rotateY(360deg);
+}
+
+.flashcard-back img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.flashcard-delete {
+  font-size: 0.8rem;
+}

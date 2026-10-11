@@ -3,6 +3,7 @@ import express, { type ErrorRequestHandler } from "express";
 import cors from "cors";
 import listsRouter from "./routes/lists.js";
 import statsRouter from "./routes/stats.js";
+import flashcardsRouter from "./routes/flashcards.js";
 import { uploadsDir } from "./storage.js";
 
 const app = express();
@@ -19,6 +20,7 @@ app.use("/uploads", express.static(uploadsDir));
 
 app.use("/api/lists", listsRouter);
 app.use("/api/stats", statsRouter);
+app.use("/api/flashcards", flashcardsRouter);
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 

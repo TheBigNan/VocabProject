@@ -20,22 +20,24 @@ export interface SavedFile {
   fileUrl: string;
 }
 
-// Saves a PDF and returns where it lives. Uses Firebase Storage when
-// FIREBASE_STORAGE_BUCKET is set, otherwise falls back to local disk under
-// server/uploads (useful before upgrading to the Blaze plan).
-export async function savePdf(
+// Saves a file under the given folder and returns where it lives. Uses
+// Firebase Storage when FIREBASE_STORAGE_BUCKET is set, otherwise falls back
+// to local disk under server/uploads (useful before upgrading to the Blaze
+// plan). Local disk doesn't namespace by folder — all local files share one
+// flat directory, since the random filename prefix already avoids collisions.
+export async function saveFile(
   buffer: Buffer,
-  originalFilename: string
+  originalFilename: string,
+  contentType: string,
+  folder: string
 ): Promise<SavedFile> {
   const filename = `${randomUUID()}-${originalFilename}`;
 
   if (useFirebaseStorage) {
     const bucket = admin.storage().bucket();
-    const storagePath = `lists/${filename}`;
+    const storagePath = `${folder}/${filename}`;
     const fileRef = bucket.file(storagePath);
-    await fileRef.save(buffer, {
-      metadata: { contentType: "application/pdf" },
-    });
+    await fileRef.save(buffer, { metadata: { contentType } });
     await fileRef.makePublic();
     return {
       storagePath,
@@ -48,4 +50,29 @@ export async function savePdf(
     storagePath: `uploads/${filename}`,
     fileUrl: `/uploads/${filename}`,
   };
+}
+
+export async function savePdf(
+  buffer: Buffer,
+  originalFilename: string
+): Promise<SavedFile> {
+  return saveFile(buffer, originalFilename, "application/pdf", "lists");
+}
+
+export async function saveImage(
+  buffer: Buffer,
+  originalFilename: string,
+  contentType: string
+): Promise<SavedFile> {
+  return saveFile(buffer, originalFilename, contentType, "flashcards");
+}
+
+export async function deleteFile(storagePath: string): Promise<void> {
+  if (useFirebaseStorage) {
+    await admin.storage().bucket().file(storagePath).delete({ ignoreNotFound: true });
+    return;
+  }
+
+  const filePath = path.join(uploadsDir, path.basename(storagePath));
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 }

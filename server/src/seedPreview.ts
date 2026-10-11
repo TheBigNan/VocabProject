@@ -1,8 +1,6 @@
 import "dotenv/config";
-import fs from "node:fs";
-import path from "node:path";
 import { db } from "./firebase.js";
-import { savePdf, uploadsDir } from "./storage.js";
+import { savePdf, deleteFile } from "./storage.js";
 import { buildWordListPdf, type WordListContent } from "./pdfTemplate.js";
 
 const PREVIEW_LIST: WordListContent = {
@@ -41,10 +39,7 @@ async function clearExistingPreview() {
 
   for (const doc of snapshot.docs) {
     const storagePath = doc.data().storagePath as string | undefined;
-    if (storagePath?.startsWith("uploads/")) {
-      const filePath = path.join(uploadsDir, path.basename(storagePath));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+    if (storagePath) await deleteFile(storagePath);
     await doc.ref.delete();
   }
 

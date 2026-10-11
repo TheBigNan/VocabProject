@@ -14,3 +14,13 @@ export interface StatsSummary {
   visits: number;
   downloads: number;
 }
+
+export interface Flashcard {
+  id: string;
+  createdBy: string;
+  word: string;
+  cardType: "definition" | "picture";
+  definition?: string;
+  imageUrl?: string;
+  createdAt: string;
+}
