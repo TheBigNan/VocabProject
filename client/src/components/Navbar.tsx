@@ -9,7 +9,7 @@ const links = [
 ];
 
 export default function Navbar() {
-  const { user, logOut } = useAuth();
+  const { user, role, logOut } = useAuth();
   const navigate = useNavigate();
 
   async function handleLogOut() {
@@ -37,6 +37,16 @@ export default function Navbar() {
               {link.label}
             </NavLink>
           ))}
+          {role === "admin" && (
+            <NavLink
+              to="/stats"
+              className={({ isActive }) =>
+                "nav-link" + (isActive ? " nav-link-active" : "")
+              }
+            >
+              Stats
+            </NavLink>
+          )}
           {user ? (
             <>
               <span className="nav-user">{user.email}</span>

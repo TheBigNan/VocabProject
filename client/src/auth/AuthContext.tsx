@@ -13,9 +13,12 @@ import {
   type User,
 } from "firebase/auth";
 import { auth } from "../firebaseClient";
+import { fetchMe } from "../api";
+import type { UserRole } from "../types";
 
 interface AuthContextValue {
   user: User | null;
+  role: UserRole | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -26,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,14 +37,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    return onAuthStateChanged(auth, (nextUser) => {
+    return onAuthStateChanged(auth, async (nextUser) => {
       setUser(nextUser);
+      if (nextUser) {
+        try {
+          const token = await nextUser.getIdToken();
+          const profile = await fetchMe(token);
+          setRole(profile.role);
+        } catch {
+          // Role defaults to "member" on the server, so if the lookup
+          // fails just assume the non-privileged case rather than blocking.
+          setRole("member");
+        }
+      } else {
+        setRole(null);
+      }
       setLoading(false);
     });
   }, []);
 
   const value: AuthContextValue = {
     user,
+    role,
     loading,
     signIn: async (email, password) => {
       if (!auth) {

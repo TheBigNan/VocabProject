@@ -1,8 +1,9 @@
-import type { VocabList, StatsSummary, Flashcard } from "./types";
+import type { VocabList, StatsSummary, Flashcard, UserProfile } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
 export class AuthError extends Error {}
+export class ForbiddenError extends Error {}
 
 // Requires a logged-in user's Firebase ID token — returns the full library.
 export async function fetchLists(idToken: string): Promise<VocabList[]> {
@@ -32,8 +33,13 @@ export function authenticatedDownloadUrl(id: string, idToken: string): string {
   return `${API_URL}/api/lists/${id}/download?token=${encodeURIComponent(idToken)}`;
 }
 
-export async function fetchStats(): Promise<StatsSummary> {
-  const res = await fetch(`${API_URL}/api/stats`);
+// Admin only.
+export async function fetchStats(idToken: string): Promise<StatsSummary> {
+  const res = await fetch(`${API_URL}/api/stats`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
   if (!res.ok) throw new Error("Failed to fetch stats.");
   return res.json();
 }
@@ -116,4 +122,15 @@ export async function deleteFlashcard(idToken: string, id: string): Promise<void
   });
   if (res.status === 401) throw new AuthError("Not authorized.");
   if (!res.ok) throw new Error("Failed to delete flashcard.");
+}
+
+// The current user's profile (role, etc). Creates a default "member"
+// profile on the server on first call.
+export async function fetchMe(idToken: string): Promise<UserProfile> {
+  const res = await fetch(`${API_URL}/api/users/me`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (!res.ok) throw new Error("Failed to fetch profile.");
+  return res.json();
 }

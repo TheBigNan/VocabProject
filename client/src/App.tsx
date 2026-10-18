@@ -7,6 +7,7 @@ import About from "./pages/About";
 import Login from "./pages/Login";
 import ViewLists from "./pages/ViewLists";
 import StudyTools from "./pages/StudyTools";
+import Stats from "./pages/Stats";
 import { recordVisit } from "./api";
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/lists" element={<ViewLists />} />
           <Route path="/study" element={<StudyTools />} />
+          <Route path="/stats" element={<Stats />} />
         </Routes>
       </main>
       <Footer />

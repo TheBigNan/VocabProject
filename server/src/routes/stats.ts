@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import admin, { db } from "../firebase.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
 import type { StatsSummary } from "../types.js";
 
 const router = Router();
 
-// GET /api/stats - current site visit and download counts
-router.get("/", async (req: Request, res: Response) => {
+// GET /api/stats - current site visit and download counts. Admins only.
+router.get("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const doc = await db.collection("stats").doc("summary").get();
     const data = (doc.exists ? doc.data() : {}) as Partial<StatsSummary>;

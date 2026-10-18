@@ -6,8 +6,8 @@ A website for learning vocabulary from popular books, built with React + TypeScr
 
 ```
 VocabProject/
-  client/    React app (Vite) — the 4 pages: Home, About Me, View Lists, Statistics
-  server/    Express API — talks to Firebase Admin SDK (Firestore for metadata/stats, Storage for PDFs)
+  client/    React app (Vite) — Home, View Lists, Study Tools, About Me, Login, and an admin-only Stats page
+  server/    Express API — talks to Firebase Admin SDK (Firestore for metadata/stats/users, Storage for PDFs)
 ```
 
 There's no public "submit a list" page — real lists are added by you with the `yarn add-list` script (see "Adding a real list" below). The API only exposes read endpoints (`GET /api/lists`, `GET /api/lists/preview`, `GET /api/lists/:id/download`, `GET /api/stats`, `POST /api/stats/visit`).
@@ -94,10 +94,21 @@ yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Real
 - It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Lists page for logged-in users.
 - There's no delete/edit command yet — do that directly in the Firebase console (Firestore for the `lists` collection, Storage for the file) if you need to remove or fix one.
 
+## 7. Granting admin access
+
+Every account is a **member** by default. Members can use the site normally but can't see the Stats page. To make someone an **admin**:
+
+1. Have them log in or sign up at least once (this creates their `users/{uid}` document in Firestore automatically, with `role: "member"`).
+2. In the [Firebase console](https://console.firebase.google.com/) → Firestore Database → `users` collection, find their document (you can match it by the `email` field) and change `role` from `"member"` to `"admin"`.
+3. Have them reload the site. The "Stats" link appears in the nav once their role is picked up, and `/stats` shows live visit/download counts.
+
+There's no in-app way to grant admin — it's deliberately database-only, so nobody can self-promote.
+
 ## Notes / things you can adjust later
 
 - **Genres**: the view-lists page uses a fixed genre list defined in `client/src/genres.ts` (`GENRES` constant) to order sections. Edit that array to add/remove genres.
-- **Statistics**: "site visits" increment once per browser session (tracked via `sessionStorage`) when the app loads. "Downloads" increment each time someone downloads a list PDF, via the `/api/lists/:id/download` endpoint, which redirects to the actual file (local disk or Firebase Storage, whichever is active).
+- **Statistics**: "site visits" increment once per browser session (tracked via `sessionStorage`) when the app loads. "Downloads" increment each time someone downloads a list PDF, via the `/api/lists/:id/download` endpoint, which redirects to the actual file (local disk or Firebase Storage, whichever is active). Tracking always runs regardless of who's visiting; only *viewing* the numbers (the Stats page, `GET /api/stats`) is restricted to admins.
+- **Roles**: every signup gets a `users/{uid}` Firestore document with `role: "member"`, created automatically on first login by `GET /api/users/me` (see `server/src/routes/users.ts`). The server checks this field — never anything sent by the client — before allowing `GET /api/stats`, via the `requireAdmin` middleware in `server/src/middleware/auth.ts`. See "Granting admin access" above to promote someone.
 - **PDF storage**: handled by `server/src/storage.ts`. It automatically uses Firebase Storage if `FIREBASE_STORAGE_BUCKET` is set, otherwise falls back to local disk (`server/uploads/`, gitignored). The server logs which one is active on startup. Note that local storage doesn't survive a redeploy to most hosting platforms — it's meant for local development until you're on Blaze.
 - **Firestore security rules**: for a fast start, everything currently goes through the Express server using the Admin SDK, which bypasses Firestore/Storage security rules. If you later want the client to talk to Firebase directly, you'll need to write proper security rules.
 - **Auth model**: the client gets a Firebase ID token after login (`user.getIdToken()`) and sends it to the server as `Authorization: Bearer <token>` (for `GET /api/lists`) or as a `?token=` query param (for downloads, since those are plain browser navigations, not `fetch` calls — see `server/src/middleware/auth.ts` and the download route in `server/src/routes/lists.ts`). The server verifies it with the Admin SDK (`admin.auth().verifyIdToken`) on every protected request; nothing is cached or trusted client-side.

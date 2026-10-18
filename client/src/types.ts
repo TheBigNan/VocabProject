@@ -24,3 +24,12 @@ export interface Flashcard {
   imageUrl?: string;
   createdAt: string;
 }
+
+export type UserRole = "member" | "admin";
+
+export interface UserProfile {
+  uid: string;
+  email: string | null;
+  role: UserRole;
+  createdAt: string;
+}
