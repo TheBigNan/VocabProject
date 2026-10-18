@@ -15,14 +15,22 @@ export interface StatsSummary {
   downloads: number;
 }
 
+// "definition": word front, definition back.
+// "picture": word front, picture back (imageUrl/imageStoragePath).
+// "picture-picture": picture front (frontImageUrl/frontImageStoragePath),
+// picture back (imageUrl/imageStoragePath) — word is not used.
+export type CardType = "definition" | "picture" | "picture-picture";
+
 export interface Flashcard {
   id: string;
   createdBy: string;
   word: string;
-  cardType: "definition" | "picture";
+  cardType: CardType;
   definition?: string;
   imageUrl?: string;
   imageStoragePath?: string;
+  frontImageUrl?: string;
+  frontImageStoragePath?: string;
   createdAt: string;
 }
 
@@ -35,7 +43,9 @@ export interface UserProfile {
   createdAt: string;
 }
 
-// A premade flashcard set, created by an admin and usable by everyone.
+// A premade flashcard set, created by an admin and usable by everyone once
+// published. Unpublished sets are only visible/editable by admins, so an
+// admin can build a set out before showing it to members.
 export interface FlashcardSet {
   id: string;
   title: string;
@@ -43,6 +53,7 @@ export interface FlashcardSet {
   createdBy: string;
   createdAt: string;
   cardCount: number;
+  published: boolean;
 }
 
 // A card within a FlashcardSet. Same shape as Flashcard but scoped to a
@@ -51,9 +62,11 @@ export interface SetFlashcard {
   id: string;
   setId: string;
   word: string;
-  cardType: "definition" | "picture";
+  cardType: CardType;
   definition?: string;
   imageUrl?: string;
   imageStoragePath?: string;
+  frontImageUrl?: string;
+  frontImageStoragePath?: string;
   createdAt: string;
 }

@@ -1,22 +1,18 @@
 import { Router, type Request, type Response } from "express";
-import multer from "multer";
 import admin, { db } from "../firebase.js";
-import { requireAuth, requireAdmin } from "../middleware/auth.js";
-import { saveFile, deleteFile } from "../storage.js";
+import { requireAuth, requireAdmin, getUserRole } from "../middleware/auth.js";
+import {
+  cardImageUpload,
+  buildNewCard,
+  buildCardUpdate,
+  deleteCardFiles,
+  CardValidationError,
+} from "../cardFields.js";
 import type { FlashcardSet, SetFlashcard } from "../types.js";
 
 const router = Router();
 
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith("image/")) {
-      return cb(new Error("Only image files are allowed."));
-    }
-    cb(null, true);
-  },
-});
+const IMAGE_FOLDER = "flashcard-sets";
 
 async function findCardOrFail(setId: string, cardId: string) {
   const docRef = db.collection("flashcardSetCards").doc(cardId);
@@ -25,16 +21,22 @@ async function findCardOrFail(setId: string, cardId: string) {
   return { docRef, data: doc.data() as SetFlashcard };
 }
 
-// GET /api/flashcard-sets - all premade sets. Any logged-in user.
+// GET /api/flashcard-sets - premade sets. Admins see every set, including
+// unpublished drafts they're still building; everyone else only sees
+// published ones.
 router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
+    const role = await getUserRole(req.user!.uid);
     const snapshot = await db
       .collection("flashcardSets")
       .orderBy("createdAt", "desc")
       .get();
-    const sets: FlashcardSet[] = snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() } as FlashcardSet)
-    );
+    const sets: FlashcardSet[] = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() } as FlashcardSet))
+      // Sets created before the publish feature existed have no `published`
+      // field at all — treat that as published (grandfathered in) rather
+      // than silently hiding content that was already live.
+      .filter((set) => role === "admin" || set.published !== false);
     res.json(sets);
   } catch (err) {
     console.error(err);
@@ -42,7 +44,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/flashcard-sets - create a new set. Admins only.
+// POST /api/flashcard-sets - create a new (unpublished) set. Admins only.
 router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const { title, genre } = req.body as { title?: string; genre?: string };
@@ -59,6 +61,7 @@ router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) 
       createdBy: req.user!.uid,
       createdAt: new Date().toISOString(),
       cardCount: 0,
+      published: false,
     };
     const docRef = await db.collection("flashcardSets").add(data);
     const doc = await docRef.get();
@@ -68,6 +71,35 @@ router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) 
     res.status(500).json({ error: "Failed to create flashcard set." });
   }
 });
+
+// PATCH /api/flashcard-sets/:id/publish - publish or unpublish a set.
+// Admins only. This is the "submit it to the public whenever ready" switch.
+router.patch(
+  "/:id/publish",
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { published } = req.body as { published?: boolean };
+      if (typeof published !== "boolean") {
+        return res.status(400).json({ error: "published must be true or false." });
+      }
+
+      const setRef = db.collection("flashcardSets").doc(req.params.id);
+      const setDoc = await setRef.get();
+      if (!setDoc.exists) {
+        return res.status(404).json({ error: "Flashcard set not found." });
+      }
+
+      await setRef.update({ published });
+      const updatedDoc = await setRef.get();
+      res.json({ id: updatedDoc.id, ...updatedDoc.data() });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to update publish status." });
+    }
+  }
+);
 
 // DELETE /api/flashcard-sets/:id - deletes the set and all its cards
 // (and their images). Admins only.
@@ -85,8 +117,7 @@ router.delete("/:id", requireAuth, requireAdmin, async (req: Request, res: Respo
       .get();
 
     for (const cardDoc of cardsSnapshot.docs) {
-      const storagePath = cardDoc.data().imageStoragePath as string | undefined;
-      if (storagePath) await deleteFile(storagePath);
+      await deleteCardFiles(cardDoc.data() as SetFlashcard);
       await cardDoc.ref.delete();
     }
 
@@ -98,9 +129,24 @@ router.delete("/:id", requireAuth, requireAdmin, async (req: Request, res: Respo
   }
 });
 
-// GET /api/flashcard-sets/:id/cards - cards in a set. Any logged-in user.
+// GET /api/flashcard-sets/:id/cards - cards in a set. Any logged-in user
+// may read a published set's cards; unpublished (draft) sets are only
+// readable by admins, so members never see a set that isn't ready yet.
 router.get("/:id/cards", requireAuth, async (req: Request, res: Response) => {
   try {
+    const setDoc = await db.collection("flashcardSets").doc(req.params.id).get();
+    if (!setDoc.exists) {
+      return res.status(404).json({ error: "Flashcard set not found." });
+    }
+    const set = setDoc.data() as FlashcardSet;
+
+    if (set.published === false) {
+      const role = await getUserRole(req.user!.uid);
+      if (role !== "admin") {
+        return res.status(403).json({ error: "This set isn't available yet." });
+      }
+    }
+
     const snapshot = await db
       .collection("flashcardSetCards")
       .where("setId", "==", req.params.id)
@@ -122,7 +168,7 @@ router.post(
   "/:id/cards",
   requireAuth,
   requireAdmin,
-  upload.single("image"),
+  cardImageUpload,
   async (req: Request, res: Response) => {
     try {
       const setRef = db.collection("flashcardSets").doc(req.params.id);
@@ -131,56 +177,22 @@ router.post(
         return res.status(404).json({ error: "Flashcard set not found." });
       }
 
-      const { word, cardType, definition } = req.body as {
-        word?: string;
-        cardType?: string;
-        definition?: string;
-      };
-
-      if (!word) {
-        return res.status(400).json({ error: "word is required." });
-      }
-      if (cardType !== "definition" && cardType !== "picture") {
-        return res
-          .status(400)
-          .json({ error: 'cardType must be "definition" or "picture".' });
-      }
-      if (cardType === "definition" && !definition) {
-        return res
-          .status(400)
-          .json({ error: "definition is required for a definition card." });
-      }
-      if (cardType === "picture" && !req.file) {
-        return res
-          .status(400)
-          .json({ error: "image is required for a picture card." });
-      }
+      const fields = await buildNewCard(req.body, req.files as any, IMAGE_FOLDER);
 
       const data: Omit<SetFlashcard, "id"> = {
         setId: req.params.id,
-        word,
-        cardType,
         createdAt: new Date().toISOString(),
+        ...fields,
       };
-
-      if (cardType === "definition") {
-        data.definition = definition;
-      } else if (req.file) {
-        const { storagePath, fileUrl } = await saveFile(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype,
-          "flashcard-sets"
-        );
-        data.imageUrl = fileUrl;
-        data.imageStoragePath = storagePath;
-      }
 
       const docRef = await db.collection("flashcardSetCards").add(data);
       await setRef.update({ cardCount: admin.firestore.FieldValue.increment(1) });
       const doc = await docRef.get();
       res.status(201).json({ id: doc.id, ...doc.data() });
     } catch (err) {
+      if (err instanceof CardValidationError) {
+        return res.status(400).json({ error: err.message });
+      }
       console.error(err);
       res.status(500).json({ error: "Failed to add card." });
     }
@@ -192,83 +204,27 @@ router.put(
   "/:id/cards/:cardId",
   requireAuth,
   requireAdmin,
-  upload.single("image"),
+  cardImageUpload,
   async (req: Request, res: Response) => {
     try {
       const found = await findCardOrFail(req.params.id, req.params.cardId);
       if (!found) {
         return res.status(404).json({ error: "Card not found." });
       }
-      const { docRef, data: existing } = found;
 
-      const { word, cardType, definition } = req.body as {
-        word?: string;
-        cardType?: string;
-        definition?: string;
-      };
-
-      if (
-        cardType !== undefined &&
-        cardType !== "definition" &&
-        cardType !== "picture"
-      ) {
-        return res
-          .status(400)
-          .json({ error: 'cardType must be "definition" or "picture".' });
-      }
-
-      const finalWord = word?.trim() || existing.word;
-      if (!finalWord) {
-        return res.status(400).json({ error: "word is required." });
-      }
-      const finalType = (cardType as "definition" | "picture" | undefined) ?? existing.cardType;
-
-      const update: Record<string, unknown> = {
-        word: finalWord,
-        cardType: finalType,
-      };
-
-      if (finalType === "definition") {
-        const finalDefinition =
-          definition?.trim() ||
-          (existing.cardType === "definition" ? existing.definition : undefined);
-        if (!finalDefinition) {
-          return res
-            .status(400)
-            .json({ error: "definition is required for a definition card." });
-        }
-        update.definition = finalDefinition;
-
-        if (existing.imageStoragePath) {
-          await deleteFile(existing.imageStoragePath);
-        }
-        update.imageUrl = admin.firestore.FieldValue.delete();
-        update.imageStoragePath = admin.firestore.FieldValue.delete();
-      } else {
-        if (req.file) {
-          if (existing.imageStoragePath) {
-            await deleteFile(existing.imageStoragePath);
-          }
-          const { storagePath, fileUrl } = await saveFile(
-            req.file.buffer,
-            req.file.originalname,
-            req.file.mimetype,
-            "flashcard-sets"
-          );
-          update.imageUrl = fileUrl;
-          update.imageStoragePath = storagePath;
-        } else if (existing.cardType !== "picture" || !existing.imageUrl) {
-          return res
-            .status(400)
-            .json({ error: "image is required for a picture card." });
-        }
-        update.definition = admin.firestore.FieldValue.delete();
-      }
-
-      await docRef.update(update);
-      const updatedDoc = await docRef.get();
+      const update = await buildCardUpdate(
+        found.data,
+        req.body,
+        req.files as any,
+        IMAGE_FOLDER
+      );
+      await found.docRef.update(update);
+      const updatedDoc = await found.docRef.get();
       res.json({ id: updatedDoc.id, ...updatedDoc.data() });
     } catch (err) {
+      if (err instanceof CardValidationError) {
+        return res.status(400).json({ error: err.message });
+      }
       console.error(err);
       res.status(500).json({ error: "Failed to update card." });
     }
@@ -287,12 +243,9 @@ router.delete(
       if (!found) {
         return res.status(404).json({ error: "Card not found." });
       }
-      const { docRef, data: card } = found;
 
-      if (card.imageStoragePath) {
-        await deleteFile(card.imageStoragePath);
-      }
-      await docRef.delete();
+      await deleteCardFiles(found.data);
+      await found.docRef.delete();
       await db
         .collection("flashcardSets")
         .doc(req.params.id)

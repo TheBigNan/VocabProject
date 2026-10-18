@@ -361,6 +361,26 @@ a {
   text-align: center;
 }
 
+.badge-draft,
+.badge-published {
+  display: inline-block;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  font-size: 0.75rem;
+  font-weight: bold;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+}
+
+.badge-draft {
+  background: rgba(193, 80, 46, 0.12);
+  color: var(--color-primary-dark);
+}
+
+.badge-published {
+  background: rgba(47, 111, 94, 0.12);
+  color: var(--color-accent);
+}
+
 .stats-section {
   margin-top: 3rem;
   padding-top: 2.5rem;

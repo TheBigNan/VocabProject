@@ -59,14 +59,6 @@ export async function savePdf(
   return saveFile(buffer, originalFilename, "application/pdf", "lists");
 }
 
-export async function saveImage(
-  buffer: Buffer,
-  originalFilename: string,
-  contentType: string
-): Promise<SavedFile> {
-  return saveFile(buffer, originalFilename, contentType, "flashcards");
-}
-
 export async function deleteFile(storagePath: string): Promise<void> {
   if (useFirebaseStorage) {
     await admin.storage().bucket().file(storagePath).delete({ ignoreNotFound: true });

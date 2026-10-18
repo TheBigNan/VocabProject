@@ -10,6 +10,7 @@ import {
   fetchLists,
   fetchPreview,
   ForbiddenError,
+  setFlashcardSetPublished,
 } from "../api";
 import type { VocabList, FlashcardSet } from "../types";
 import { GENRES } from "../genres";
@@ -229,6 +230,17 @@ function FullLibraryView() {
     }
   }
 
+  async function handleTogglePublish(set: FlashcardSet) {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const updated = await setFlashcardSetPublished(token, set.id, !set.published);
+      setSets((prev) => prev.map((s) => (s.id === set.id ? updated : s)));
+    } catch (err) {
+      if (!(err instanceof ForbiddenError)) loadAll();
+    }
+  }
+
   return (
     <div className="page">
       <h1>View Materials</h1>
@@ -292,21 +304,40 @@ function FullLibraryView() {
               {sets.map((set) => (
                 <article key={set.id} className="list-card">
                   <h3>{set.title}</h3>
-                  <p className="list-meta">Genre: {set.genre}</p>
+                  <p className="list-meta">
+                    Genre: {set.genre}
+                    {isAdmin && (
+                      <>
+                        {" · "}
+                        <span className={set.published ? "badge-published" : "badge-draft"}>
+                          {set.published ? "Published" : "Draft"}
+                        </span>
+                      </>
+                    )}
+                  </p>
                   <p className="list-meta">
                     {set.cardCount} {set.cardCount === 1 ? "card" : "cards"}
                   </p>
                   <Link to={`/materials/sets/${set.id}`} className="btn btn-secondary">
-                    Study Set
+                    {set.published ? "Study Set" : "Preview Set"}
                   </Link>
                   {isAdmin && (
-                    <button
-                      type="button"
-                      className="link-button flashcard-delete-set"
-                      onClick={() => handleDeleteSet(set.id)}
-                    >
-                      Delete Set
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => handleTogglePublish(set)}
+                      >
+                        {set.published ? "Unpublish" : "Publish"}
+                      </button>
+                      <button
+                        type="button"
+                        className="link-button flashcard-delete-set"
+                        onClick={() => handleDeleteSet(set.id)}
+                      >
+                        Delete Set
+                      </button>
+                    </>
                   )}
                 </article>
               ))}
