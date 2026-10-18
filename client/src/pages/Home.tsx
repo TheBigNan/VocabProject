@@ -1,21 +1,6 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchStats } from "../api";
-import type { StatsSummary } from "../types";
 
 export default function Home() {
-  const [stats, setStats] = useState<StatsSummary | null>(null);
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
-
-  useEffect(() => {
-    fetchStats()
-      .then((data) => {
-        setStats(data);
-        setStatus("loaded");
-      })
-      .catch(() => setStatus("error"));
-  }, []);
-
   return (
     <div className="page">
       <section className="hero">
@@ -56,24 +41,6 @@ export default function Home() {
           </p>
         </div>
       </section>
-
-      {status === "loaded" && stats && (
-        <section className="stats-section">
-          <h2>WordWise in numbers</h2>
-          <div className="stats-grid">
-            <div className="stat-card">
-              <span className="stat-number">{stats.visits.toLocaleString()}</span>
-              <span className="stat-label">Website Visits</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-number">
-                {stats.downloads.toLocaleString()}
-              </span>
-              <span className="stat-label">Lists Downloaded</span>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 }
