@@ -6,13 +6,15 @@ A website for learning vocabulary from popular books, built with React + TypeScr
 
 ```
 VocabProject/
-  client/    React app (Vite) — Home, View Lists, Study Tools, About Me, Login, and an admin-only Stats page
-  server/    Express API — talks to Firebase Admin SDK (Firestore for metadata/stats/users, Storage for PDFs)
+  client/    React app (Vite) — Home, View Materials, Study Tools, About Me, Login, and an admin-only Stats page
+  server/    Express API — talks to Firebase Admin SDK (Firestore for metadata/stats/users, Storage for PDFs/images)
 ```
 
-There's no public "submit a list" page — real lists are added by you with the `yarn add-list` script (see "Adding a real list" below). The API only exposes read endpoints (`GET /api/lists`, `GET /api/lists/preview`, `GET /api/lists/:id/download`, `GET /api/stats`, `POST /api/stats/visit`).
+There's no public "submit a list" page — real lists are added by you with the `yarn add-list` script (see "Adding a real list" below). The API only exposes read endpoints for lists (`GET /api/lists`, `GET /api/lists/preview`, `GET /api/lists/:id/download`, `GET /api/stats`, `POST /api/stats/visit`).
 
-**The vocabulary library requires logging in.** `GET /api/lists` (the full library) and downloading any list both require a valid Firebase login — logged-out visitors on the View Lists page instead see one sample list (`GET /api/lists/preview`, which stays public) plus a "Log In / Sign Up" prompt. See "Set up Authentication" below.
+**The vocabulary library requires logging in.** `GET /api/lists` (the full library) and downloading any list both require a valid Firebase login — logged-out visitors on the View Materials page instead see one sample list (`GET /api/lists/preview`, which stays public) plus a "Log In / Sign Up" prompt. See "Set up Authentication" below.
+
+**View Materials** (`/materials`) shows both PDF vocabulary lists and premade flashcard sets side by side. Flashcard sets are created and managed by admins only (see "Creating premade flashcard sets" below) but studyable by any logged-in member, at `/materials/sets/:id` — word on one side, a definition or picture on the other, with Previous/Next navigation (same viewer as the personal flashcards on Study Tools, just read-only for non-admins).
 
 ## 1. Set up Firebase
 
@@ -90,8 +92,8 @@ yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Real
 ```
 
 - `--date` is optional and defaults to today.
-- `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Lists page instead of getting its own.
-- It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Lists page for logged-in users.
+- `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Materials page instead of getting its own.
+- It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Materials page for logged-in users.
 - There's no delete/edit command yet — do that directly in the Firebase console (Firestore for the `lists` collection, Storage for the file) if you need to remove or fix one.
 
 ## 7. Granting admin access
@@ -104,9 +106,14 @@ Every account is a **member** by default. Members can use the site normally but 
 
 There's no in-app way to grant admin — it's deliberately database-only, so nobody can self-promote.
 
+## 8. Creating premade flashcard sets
+
+Once you're an admin, go to **View Materials** (`/materials`) and scroll to the "Flashcard Sets" section — you'll see a "+ New Flashcard Set" button that members don't get. Give it a title and genre, then click "Study Set" on the new set to open its page and start adding cards (same word/definition or word/picture form as the personal Study Tools page). Any logged-in member can study the set once you've added cards; only admins can add, edit, or delete cards, or delete the set entirely.
+
 ## Notes / things you can adjust later
 
-- **Genres**: the view-lists page uses a fixed genre list defined in `client/src/genres.ts` (`GENRES` constant) to order sections. Edit that array to add/remove genres.
+- **Genres**: the View Materials page uses a fixed genre list defined in `client/src/genres.ts` (`GENRES` constant) to order sections, for both lists and flashcard sets. Edit that array to add/remove genres.
+- **Flashcard sets**: stored as two Firestore collections — `flashcardSets` (one doc per set: title, genre, cardCount) and `flashcardSetCards` (one doc per card, with a `setId` field pointing back to its set). See `server/src/routes/flashcardSets.ts`. Reads are open to any logged-in user; writes (create/edit/delete set or card) require `requireAdmin`, same as the Stats page.
 - **Statistics**: "site visits" increment once per browser session (tracked via `sessionStorage`) when the app loads. "Downloads" increment each time someone downloads a list PDF, via the `/api/lists/:id/download` endpoint, which redirects to the actual file (local disk or Firebase Storage, whichever is active). Tracking always runs regardless of who's visiting; only *viewing* the numbers (the Stats page, `GET /api/stats`) is restricted to admins.
 - **Roles**: every signup gets a `users/{uid}` Firestore document with `role: "member"`, created automatically on first login by `GET /api/users/me` (see `server/src/routes/users.ts`). The server checks this field — never anything sent by the client — before allowing `GET /api/stats`, via the `requireAdmin` middleware in `server/src/middleware/auth.ts`. See "Granting admin access" above to promote someone.
 - **PDF storage**: handled by `server/src/storage.ts`. It automatically uses Firebase Storage if `FIREBASE_STORAGE_BUCKET` is set, otherwise falls back to local disk (`server/uploads/`, gitignored). The server logs which one is active on startup. Note that local storage doesn't survive a redeploy to most hosting platforms — it's meant for local development until you're on Blaze.

@@ -1,4 +1,11 @@
-import type { VocabList, StatsSummary, Flashcard, UserProfile } from "./types";
+import type {
+  VocabList,
+  StatsSummary,
+  Flashcard,
+  UserProfile,
+  FlashcardSet,
+  SetFlashcard,
+} from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5050";
 
@@ -133,4 +140,131 @@ export async function fetchMe(idToken: string): Promise<UserProfile> {
   if (res.status === 401) throw new AuthError("Not authorized.");
   if (!res.ok) throw new Error("Failed to fetch profile.");
   return res.json();
+}
+
+// Premade flashcard sets — readable by any logged-in user, writable by
+// admins only (enforced server-side).
+
+export async function fetchFlashcardSets(idToken: string): Promise<FlashcardSet[]> {
+  const res = await fetch(`${API_URL}/api/flashcard-sets`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (!res.ok) throw new Error("Failed to fetch flashcard sets.");
+  return res.json();
+}
+
+export async function createFlashcardSet(
+  idToken: string,
+  input: { title: string; genre: string }
+): Promise<FlashcardSet> {
+  const res = await fetch(`${API_URL}/api/flashcard-sets`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to create flashcard set.");
+  }
+  return res.json();
+}
+
+export async function deleteFlashcardSet(idToken: string, id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/flashcard-sets/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) throw new Error("Failed to delete flashcard set.");
+}
+
+export async function fetchSetCards(
+  idToken: string,
+  setId: string
+): Promise<SetFlashcard[]> {
+  const res = await fetch(`${API_URL}/api/flashcard-sets/${setId}/cards`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (!res.ok) throw new Error("Failed to fetch cards.");
+  return res.json();
+}
+
+export interface SetCardInput {
+  word: string;
+  cardType: "definition" | "picture";
+  definition?: string;
+  image?: File;
+}
+
+export async function createSetCard(
+  idToken: string,
+  setId: string,
+  input: SetCardInput
+): Promise<SetFlashcard> {
+  const formData = new FormData();
+  formData.append("word", input.word);
+  formData.append("cardType", input.cardType);
+  if (input.definition) formData.append("definition", input.definition);
+  if (input.image) formData.append("image", input.image);
+
+  const res = await fetch(`${API_URL}/api/flashcard-sets/${setId}/cards`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to add card.");
+  }
+  return res.json();
+}
+
+export async function updateSetCard(
+  idToken: string,
+  setId: string,
+  cardId: string,
+  input: SetCardInput
+): Promise<SetFlashcard> {
+  const formData = new FormData();
+  formData.append("word", input.word);
+  formData.append("cardType", input.cardType);
+  if (input.definition) formData.append("definition", input.definition);
+  if (input.image) formData.append("image", input.image);
+
+  const res = await fetch(`${API_URL}/api/flashcard-sets/${setId}/cards/${cardId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: formData,
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to update card.");
+  }
+  return res.json();
+}
+
+export async function deleteSetCard(
+  idToken: string,
+  setId: string,
+  cardId: string
+): Promise<void> {
+  const res = await fetch(`${API_URL}/api/flashcard-sets/${setId}/cards/${cardId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) throw new Error("Failed to delete card.");
 }

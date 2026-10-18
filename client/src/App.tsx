@@ -1,11 +1,12 @@
 import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Login from "./pages/Login";
-import ViewLists from "./pages/ViewLists";
+import ViewMaterials from "./pages/ViewMaterials";
+import FlashcardSetViewer from "./pages/FlashcardSetViewer";
 import StudyTools from "./pages/StudyTools";
 import Stats from "./pages/Stats";
 import { recordVisit } from "./api";
@@ -26,7 +27,9 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/lists" element={<ViewLists />} />
+          <Route path="/materials" element={<ViewMaterials />} />
+          <Route path="/materials/sets/:setId" element={<FlashcardSetViewer />} />
+          <Route path="/lists" element={<Navigate to="/materials" replace />} />
           <Route path="/study" element={<StudyTools />} />
           <Route path="/stats" element={<Stats />} />
         </Routes>

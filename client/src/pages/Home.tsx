@@ -12,7 +12,7 @@ export default function Home() {
           is completely free to use, download, and print.
         </p>
         <div className="hero-actions">
-          <Link to="/lists" className="btn btn-primary">
+          <Link to="/materials" className="btn btn-primary">
             Browse Vocabulary Lists
           </Link>
         </div>

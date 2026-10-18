@@ -43,7 +43,7 @@ export default function Login() {
       } else {
         await signUp(email, password);
       }
-      navigate("/lists");
+      navigate("/materials");
     } catch (err) {
       const code = (err as { code?: string }).code;
       if (code) {

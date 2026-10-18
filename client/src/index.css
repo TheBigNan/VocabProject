@@ -341,6 +341,26 @@ a {
   text-align: center;
 }
 
+.materials-subsection {
+  margin-top: 1.5rem;
+}
+
+.materials-subsection h3 {
+  color: var(--color-ink);
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.materials-admin-row {
+  margin: 1rem 0 1.5rem;
+}
+
+.flashcard-delete-set {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  text-align: center;
+}
+
 .stats-section {
   margin-top: 3rem;
   padding-top: 2.5rem;
