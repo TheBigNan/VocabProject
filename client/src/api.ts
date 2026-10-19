@@ -42,6 +42,17 @@ export function authenticatedDownloadUrl(id: string, idToken: string): string {
 }
 
 // Admin only.
+export async function deleteList(idToken: string, id: string): Promise<void> {
+  const res = await fetch(`${API_URL}/api/lists/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) throw new Error("Failed to delete list.");
+}
+
+// Admin only.
 export async function fetchStats(idToken: string): Promise<StatsSummary> {
   const res = await fetch(`${API_URL}/api/stats`, {
     headers: { Authorization: `Bearer ${idToken}` },

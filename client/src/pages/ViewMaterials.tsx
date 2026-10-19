@@ -5,6 +5,7 @@ import {
   authenticatedDownloadUrl,
   createFlashcardSet,
   deleteFlashcardSet,
+  deleteList,
   downloadUrl,
   fetchFlashcardSets,
   fetchLists,
@@ -218,6 +219,18 @@ function FullLibraryView() {
     window.open(authenticatedDownloadUrl(id, token), "_blank", "noopener,noreferrer");
   }
 
+  async function handleDeleteList(id: string) {
+    if (!user) return;
+    if (!confirm("Delete this list?")) return;
+    setLists((prev) => prev.filter((l) => l.id !== id));
+    try {
+      const token = await user.getIdToken();
+      await deleteList(token, id);
+    } catch (err) {
+      if (!(err instanceof ForbiddenError)) loadAll();
+    }
+  }
+
   async function handleDeleteSet(id: string) {
     if (!user) return;
     if (!confirm("Delete this flashcard set and all its cards?")) return;
@@ -283,6 +296,15 @@ function FullLibraryView() {
                       >
                         Download / Print PDF
                       </button>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          className="link-button list-card-delete"
+                          onClick={() => handleDeleteList(list.id)}
+                        >
+                          Delete List
+                        </button>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -332,7 +354,7 @@ function FullLibraryView() {
                       </button>
                       <button
                         type="button"
-                        className="link-button flashcard-delete-set"
+                        className="link-button list-card-delete"
                         onClick={() => handleDeleteSet(set.id)}
                       >
                         Delete Set

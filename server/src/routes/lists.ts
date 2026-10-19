@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import admin, { db } from "../firebase.js";
-import { requireAuth } from "../middleware/auth.js";
+import { requireAuth, requireAdmin } from "../middleware/auth.js";
+import { deleteFile } from "../storage.js";
 import type { VocabList } from "../types.js";
 
 const router = Router();
@@ -92,6 +93,28 @@ router.get("/:id/download", async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to process download." });
+  }
+});
+
+// DELETE /api/lists/:id - removes a list and its PDF. Admins only.
+router.delete("/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const docRef = db.collection("lists").doc(req.params.id);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: "List not found." });
+    }
+
+    const list = doc.data() as VocabList;
+    if (list.storagePath) {
+      await deleteFile(list.storagePath);
+    }
+    await docRef.delete();
+
+    res.status(204).end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete list." });
   }
 });
 

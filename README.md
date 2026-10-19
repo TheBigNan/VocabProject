@@ -94,7 +94,11 @@ yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Real
 - `--date` is optional and defaults to today.
 - `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Materials page instead of getting its own.
 - It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Materials page for logged-in users.
-- There's no delete/edit command yet — do that directly in the Firebase console (Firestore for the `lists` collection, Storage for the file) if you need to remove or fix one.
+- To remove one, admins can click "Delete List" right on its card in View Materials (see "Removing a list" below) — no need to go into the Firebase console. There's still no edit command; fix a list by deleting and re-adding it.
+
+## Removing a list
+
+Any admin can delete a list straight from **View Materials** (`/materials`) — a "Delete List" link appears under every list card, admins only. It asks for confirmation, then removes both the Firestore entry and the PDF file itself (Firebase Storage or local disk, whichever is active). This is enforced server-side (`DELETE /api/lists/:id`, admin-only), not just hidden in the UI.
 
 ## 7. Granting admin access
 
