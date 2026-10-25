@@ -53,6 +53,7 @@ export async function deleteList(idToken: string, id: string): Promise<void> {
 }
 
 export interface ListFormInput {
+  title: string;
   creator: string;
   genre: string;
   dateUploaded: string;
@@ -61,6 +62,7 @@ export interface ListFormInput {
 
 function listFormData(input: ListFormInput): FormData {
   const formData = new FormData();
+  formData.append("title", input.title);
   formData.append("creator", input.creator);
   formData.append("genre", input.genre);
   formData.append("dateUploaded", input.dateUploaded);

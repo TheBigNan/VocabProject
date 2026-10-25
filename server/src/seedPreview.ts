@@ -56,6 +56,7 @@ async function seedPreview() {
   const { storagePath, fileUrl } = await savePdf(buffer, originalFilename);
 
   await db.collection("lists").add({
+    title: PREVIEW_LIST.title,
     creator: PREVIEW_LIST.creator,
     genre: PREVIEW_LIST.genre,
     dateUploaded: new Date().toISOString(),

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { GENRES } from "../genres";
 
 export interface ListFormValues {
+  title: string;
   creator: string;
   genre: string;
   dateUploaded: string;
@@ -10,6 +11,7 @@ export interface ListFormValues {
 
 export interface EditingListInfo {
   id: string;
+  title: string;
   creator: string;
   genre: string;
   dateUploaded: string; // ISO string
@@ -35,6 +37,7 @@ export function ListForm({
   onSubmit: (values: ListFormValues) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [title, setTitle] = useState(editing?.title ?? "");
   const [creator, setCreator] = useState(editing?.creator ?? "");
   const [genre, setGenre] = useState<string>(editing?.genre ?? GENRES[0]);
   const [dateUploaded, setDateUploaded] = useState(
@@ -48,6 +51,10 @@ export function ListForm({
     e.preventDefault();
     setError("");
 
+    if (!title.trim()) {
+      setError("Please enter a name for the list.");
+      return;
+    }
     if (!creator.trim()) {
       setError("Please enter a creator.");
       return;
@@ -60,6 +67,7 @@ export function ListForm({
     setSubmitting(true);
     try {
       await onSubmit({
+        title: title.trim(),
         creator: creator.trim(),
         genre,
         dateUploaded,
@@ -74,6 +82,16 @@ export function ListForm({
 
   return (
     <form className="card-form" onSubmit={handleSubmit}>
+      <label className="form-field">
+        <span>Name</span>
+        <input
+          type="text"
+          required
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </label>
+
       <label className="form-field">
         <span>Creator</span>
         <input

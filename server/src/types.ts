@@ -1,5 +1,6 @@
 export interface VocabList {
   id: string;
+  title: string;
   creator: string;
   genre: string;
   dateUploaded: string;

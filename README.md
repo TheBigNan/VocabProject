@@ -81,20 +81,21 @@ This is safe to re-run any time (e.g. to replace the sample content) — it repl
 
 ## 6. Adding, editing, and removing lists
 
-The easiest way: once you're an admin, go to **View Materials** (`/materials`) and use the "+ Add List" button at the top of the Vocabulary Lists section — fill in creator, genre, date, and the PDF. It's created as a **draft**, visible only to admins, so you can double-check it before anyone else sees it; hit **Publish** on the card when it's ready (and **Unpublish** any time to pull it back). Each list card also has an **Edit List** link (change the creator/genre/date, and optionally swap in a new PDF — leave the file field blank to keep the current one) and **Delete List** (removes both the Firestore entry and the PDF file itself). All of this is enforced server-side (`requireAdmin` on every write route in `server/src/routes/lists.ts`), not just hidden in the UI.
+The easiest way: once you're an admin, go to **View Materials** (`/materials`) and use the "+ Add List" button at the top of the Vocabulary Lists section — fill in a name, creator, genre, date, and the PDF. (The "name" is the display title shown on the card — separate from the PDF's own filename.) It's created as a **draft**, visible only to admins, so you can double-check it before anyone else sees it; hit **Publish** on the card when it's ready (and **Unpublish** any time to pull it back). Each list card also has an **Edit List** link (change the name/creator/genre/date, and optionally swap in a new PDF — leave the file field blank to keep the current one) and **Delete List** (removes both the Firestore entry and the PDF file itself). All of this is enforced server-side (`requireAdmin` on every write route in `server/src/routes/lists.ts`), not just hidden in the UI.
 
 There's also a CLI script for bulk or scripted adds, which — unlike the web form — publishes immediately:
 
 ```
 cd server
-yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--date YYYY-MM-DD]
+yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--title "Name"] [--date YYYY-MM-DD]
 ```
 
 Example:
 ```
-yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction"
+yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction" --title "Wonder Vocabulary List"
 ```
 
+- `--title` is optional — if omitted, it's derived from the PDF's filename (e.g. `wonder-vocab.pdf` → "wonder vocab").
 - `--date` is optional and defaults to today.
 - `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Materials page instead of getting its own.
 

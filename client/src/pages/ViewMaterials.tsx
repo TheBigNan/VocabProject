@@ -66,7 +66,7 @@ function PreviewView() {
       {status === "loaded" && preview && (
         <div className="list-grid">
           <article className="list-card">
-            <h3>{preview.originalFilename}</h3>
+            <h3>{preview.title}</h3>
             <p className="list-meta">Genre: {preview.genre}</p>
             <a
               className="btn btn-secondary"
@@ -331,6 +331,7 @@ function FullLibraryView() {
                     editing={
                       editingList && {
                         id: editingList.id,
+                        title: editingList.title,
                         creator: editingList.creator,
                         genre: editingList.genre,
                         dateUploaded: editingList.dateUploaded,
@@ -354,7 +355,7 @@ function FullLibraryView() {
                 <div className="list-grid">
                   {byGenre.get(genre)!.map((list) => (
                     <article key={list.id} className="list-card">
-                      <h3>{list.originalFilename}</h3>
+                      <h3>{list.title}</h3>
                       <p className="list-meta">
                         By {list.creator}
                         {isAdmin && (

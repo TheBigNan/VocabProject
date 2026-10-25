@@ -66,12 +66,16 @@ router.get("/preview", async (req: Request, res: Response) => {
 // admin explicitly publishes it.
 router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res: Response) => {
   try {
-    const { creator, genre, dateUploaded } = req.body as {
+    const { title, creator, genre, dateUploaded } = req.body as {
+      title?: string;
       creator?: string;
       genre?: string;
       dateUploaded?: string;
     };
 
+    if (!title?.trim()) {
+      return res.status(400).json({ error: "title is required." });
+    }
     if (!creator?.trim()) {
       return res.status(400).json({ error: "creator is required." });
     }
@@ -88,6 +92,7 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
     );
 
     const data: Omit<VocabList, "id"> = {
+      title: title.trim(),
       creator: creator.trim(),
       genre: genre.trim(),
       dateUploaded: dateUploaded
@@ -121,13 +126,15 @@ router.put("/:id", requireAuth, requireAdmin, pdfUpload, async (req: Request, re
     }
     const existing = doc.data() as VocabList;
 
-    const { creator, genre, dateUploaded } = req.body as {
+    const { title, creator, genre, dateUploaded } = req.body as {
+      title?: string;
       creator?: string;
       genre?: string;
       dateUploaded?: string;
     };
 
     const update: Record<string, unknown> = {
+      title: title?.trim() || existing.title,
       creator: creator?.trim() || existing.creator,
       genre: genre?.trim() || existing.genre,
       dateUploaded: dateUploaded

@@ -19,10 +19,12 @@ function printUsageAndExit(message?: string): never {
   console.error(
     [
       "Usage:",
-      '  yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--date YYYY-MM-DD]',
+      '  yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--title "Name"] [--date YYYY-MM-DD]',
       "",
       "Example:",
-      '  yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction"',
+      '  yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction" --title "Wonder Vocabulary List"',
+      "",
+      "--title defaults to the PDF's filename (cleaned up) if omitted.",
       "",
       `Known genres (for consistent grouping on the site): ${KNOWN_GENRES.join(", ")}`,
       "Any other genre string is accepted too — it'll just get its own section.",
@@ -52,14 +54,22 @@ function parseArgs(argv: string[]) {
 
   return {
     pdfPath,
+    title: options.title,
     creator: options.creator,
     genre: options.genre,
     date: options.date,
   };
 }
 
+function defaultTitleFromFilename(filePath: string): string {
+  return path
+    .basename(filePath, path.extname(filePath))
+    .replace(/[-_]+/g, " ")
+    .trim();
+}
+
 async function addList() {
-  const { pdfPath, creator, genre, date } = parseArgs(process.argv.slice(2));
+  const { pdfPath, title, creator, genre, date } = parseArgs(process.argv.slice(2));
 
   const resolvedPath = path.resolve(pdfPath);
   if (!fs.existsSync(resolvedPath)) {
@@ -86,10 +96,12 @@ async function addList() {
 
   const buffer = fs.readFileSync(resolvedPath);
   const originalFilename = path.basename(resolvedPath);
+  const resolvedTitle = title?.trim() || defaultTitleFromFilename(resolvedPath);
 
   const { storagePath, fileUrl } = await savePdf(buffer, originalFilename);
 
   const docRef = await db.collection("lists").add({
+    title: resolvedTitle,
     creator,
     genre,
     dateUploaded,
@@ -100,7 +112,7 @@ async function addList() {
     published: true,
   });
 
-  console.log(`Added "${originalFilename}" (${genre}, by ${creator}).`);
+  console.log(`Added "${resolvedTitle}" (${genre}, by ${creator}).`);
   console.log(`List ID: ${docRef.id}`);
   console.log("It'll show up on the View Lists page for logged-in users.");
 }

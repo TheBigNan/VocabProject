@@ -255,6 +255,7 @@ async function seed() {
     const { storagePath, fileUrl } = await savePdf(buffer, originalFilename);
 
     await db.collection("lists").add({
+      title: list.title,
       creator: list.creator,
       genre: list.genre,
       dateUploaded: new Date(list.dateUploaded).toISOString(),
