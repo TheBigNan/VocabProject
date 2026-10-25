@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { db } from "./firebase.js";
 import { savePdf } from "./storage.js";
+import { CATEGORY_VALUES, DEFAULT_CATEGORY } from "./categories.js";
 
 const KNOWN_GENRES = [
   "Fantasy",
@@ -19,12 +20,13 @@ function printUsageAndExit(message?: string): never {
   console.error(
     [
       "Usage:",
-      '  yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--title "Name"] [--date YYYY-MM-DD]',
+      '  yarn add-list <path-to-pdf> --creator "Name" --genre "Genre" [--title "Name"] [--category popular-books|sat-vocab] [--date YYYY-MM-DD]',
       "",
       "Example:",
       '  yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Realistic Fiction" --title "Wonder Vocabulary List"',
       "",
       "--title defaults to the PDF's filename (cleaned up) if omitted.",
+      `--category defaults to "${DEFAULT_CATEGORY}" if omitted. Must be one of: ${CATEGORY_VALUES.join(", ")}.`,
       "",
       `Known genres (for consistent grouping on the site): ${KNOWN_GENRES.join(", ")}`,
       "Any other genre string is accepted too — it'll just get its own section.",
@@ -51,12 +53,18 @@ function parseArgs(argv: string[]) {
 
   if (!options.creator) printUsageAndExit("--creator is required.");
   if (!options.genre) printUsageAndExit("--genre is required.");
+  if (options.category && !CATEGORY_VALUES.includes(options.category)) {
+    printUsageAndExit(
+      `--category must be one of: ${CATEGORY_VALUES.join(", ")}.`
+    );
+  }
 
   return {
     pdfPath,
     title: options.title,
     creator: options.creator,
     genre: options.genre,
+    category: options.category || DEFAULT_CATEGORY,
     date: options.date,
   };
 }
@@ -69,7 +77,9 @@ function defaultTitleFromFilename(filePath: string): string {
 }
 
 async function addList() {
-  const { pdfPath, title, creator, genre, date } = parseArgs(process.argv.slice(2));
+  const { pdfPath, title, creator, genre, category, date } = parseArgs(
+    process.argv.slice(2)
+  );
 
   const resolvedPath = path.resolve(pdfPath);
   if (!fs.existsSync(resolvedPath)) {
@@ -104,6 +114,7 @@ async function addList() {
     title: resolvedTitle,
     creator,
     genre,
+    category,
     dateUploaded,
     originalFilename,
     storagePath,

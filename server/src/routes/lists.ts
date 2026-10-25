@@ -3,6 +3,7 @@ import multer from "multer";
 import admin, { db } from "../firebase.js";
 import { requireAuth, requireAdmin, getUserRole } from "../middleware/auth.js";
 import { savePdf, deleteFile } from "../storage.js";
+import { CATEGORY_VALUES, DEFAULT_CATEGORY } from "../categories.js";
 import type { VocabList } from "../types.js";
 
 const router = Router();
@@ -66,10 +67,11 @@ router.get("/preview", async (req: Request, res: Response) => {
 // admin explicitly publishes it.
 router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res: Response) => {
   try {
-    const { title, creator, genre, dateUploaded } = req.body as {
+    const { title, creator, genre, category, dateUploaded } = req.body as {
       title?: string;
       creator?: string;
       genre?: string;
+      category?: string;
       dateUploaded?: string;
     };
 
@@ -81,6 +83,11 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
     }
     if (!genre?.trim()) {
       return res.status(400).json({ error: "genre is required." });
+    }
+    if (!category || !CATEGORY_VALUES.includes(category)) {
+      return res.status(400).json({
+        error: `category must be one of: ${CATEGORY_VALUES.join(", ")}.`,
+      });
     }
     if (!req.file) {
       return res.status(400).json({ error: "pdf is required." });
@@ -95,6 +102,7 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
       title: title.trim(),
       creator: creator.trim(),
       genre: genre.trim(),
+      category,
       dateUploaded: dateUploaded
         ? new Date(dateUploaded).toISOString()
         : new Date().toISOString(),
@@ -126,17 +134,25 @@ router.put("/:id", requireAuth, requireAdmin, pdfUpload, async (req: Request, re
     }
     const existing = doc.data() as VocabList;
 
-    const { title, creator, genre, dateUploaded } = req.body as {
+    const { title, creator, genre, category, dateUploaded } = req.body as {
       title?: string;
       creator?: string;
       genre?: string;
+      category?: string;
       dateUploaded?: string;
     };
+
+    if (category !== undefined && !CATEGORY_VALUES.includes(category)) {
+      return res.status(400).json({
+        error: `category must be one of: ${CATEGORY_VALUES.join(", ")}.`,
+      });
+    }
 
     const update: Record<string, unknown> = {
       title: title?.trim() || existing.title,
       creator: creator?.trim() || existing.creator,
       genre: genre?.trim() || existing.genre,
+      category: category || existing.category || DEFAULT_CATEGORY,
       dateUploaded: dateUploaded
         ? new Date(dateUploaded).toISOString()
         : existing.dateUploaded,

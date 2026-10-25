@@ -258,6 +258,7 @@ async function seed() {
       title: list.title,
       creator: list.creator,
       genre: list.genre,
+      category: "popular-books",
       dateUploaded: new Date(list.dateUploaded).toISOString(),
       originalFilename,
       storagePath,

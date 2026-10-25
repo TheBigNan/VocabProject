@@ -8,6 +8,7 @@ import {
   deleteCardFiles,
   CardValidationError,
 } from "../cardFields.js";
+import { CATEGORY_VALUES } from "../categories.js";
 import type { FlashcardSet, SetFlashcard } from "../types.js";
 
 const router = Router();
@@ -47,17 +48,27 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 // POST /api/flashcard-sets - create a new (unpublished) set. Admins only.
 router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { title, genre } = req.body as { title?: string; genre?: string };
+    const { title, genre, category } = req.body as {
+      title?: string;
+      genre?: string;
+      category?: string;
+    };
     if (!title?.trim()) {
       return res.status(400).json({ error: "title is required." });
     }
     if (!genre?.trim()) {
       return res.status(400).json({ error: "genre is required." });
     }
+    if (!category || !CATEGORY_VALUES.includes(category)) {
+      return res.status(400).json({
+        error: `category must be one of: ${CATEGORY_VALUES.join(", ")}.`,
+      });
+    }
 
     const data: Omit<FlashcardSet, "id"> = {
       title: title.trim(),
       genre: genre.trim(),
+      category,
       createdBy: req.user!.uid,
       createdAt: new Date().toISOString(),
       cardCount: 0,

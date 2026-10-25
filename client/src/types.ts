@@ -3,6 +3,7 @@ export interface VocabList {
   title: string;
   creator: string;
   genre: string;
+  category: string;
   dateUploaded: string;
   originalFilename: string;
   storagePath: string;
@@ -49,6 +50,7 @@ export interface FlashcardSet {
   id: string;
   title: string;
   genre: string;
+  category: string;
   createdBy: string;
   createdAt: string;
   cardCount: number;

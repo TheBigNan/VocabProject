@@ -59,6 +59,7 @@ async function seedPreview() {
     title: PREVIEW_LIST.title,
     creator: PREVIEW_LIST.creator,
     genre: PREVIEW_LIST.genre,
+    category: "popular-books",
     dateUploaded: new Date().toISOString(),
     originalFilename,
     storagePath,

@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from "react";
 import { GENRES } from "../genres";
+import { CATEGORIES, DEFAULT_CATEGORY } from "../categories";
 
 export interface ListFormValues {
   title: string;
   creator: string;
   genre: string;
+  category: string;
   dateUploaded: string;
   pdf?: File;
 }
@@ -14,6 +16,7 @@ export interface EditingListInfo {
   title: string;
   creator: string;
   genre: string;
+  category: string;
   dateUploaded: string; // ISO string
   originalFilename: string;
 }
@@ -40,6 +43,9 @@ export function ListForm({
   const [title, setTitle] = useState(editing?.title ?? "");
   const [creator, setCreator] = useState(editing?.creator ?? "");
   const [genre, setGenre] = useState<string>(editing?.genre ?? GENRES[0]);
+  const [category, setCategory] = useState<string>(
+    editing?.category ?? DEFAULT_CATEGORY
+  );
   const [dateUploaded, setDateUploaded] = useState(
     editing ? toDateInputValue(editing.dateUploaded) : today()
   );
@@ -70,6 +76,7 @@ export function ListForm({
         title: title.trim(),
         creator: creator.trim(),
         genre,
+        category,
         dateUploaded,
         pdf: pdf ?? undefined,
       });
@@ -108,6 +115,17 @@ export function ListForm({
           {GENRES.map((g) => (
             <option key={g} value={g}>
               {g}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="form-field">
+        <span>Section</span>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
             </option>
           ))}
         </select>

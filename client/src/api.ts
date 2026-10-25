@@ -56,6 +56,7 @@ export interface ListFormInput {
   title: string;
   creator: string;
   genre: string;
+  category: string;
   dateUploaded: string;
   pdf?: File;
 }
@@ -65,6 +66,7 @@ function listFormData(input: ListFormInput): FormData {
   formData.append("title", input.title);
   formData.append("creator", input.creator);
   formData.append("genre", input.genre);
+  formData.append("category", input.category);
   formData.append("dateUploaded", input.dateUploaded);
   if (input.pdf) formData.append("pdf", input.pdf);
   return formData;
@@ -247,7 +249,7 @@ export async function fetchFlashcardSets(idToken: string): Promise<FlashcardSet[
 
 export async function createFlashcardSet(
   idToken: string,
-  input: { title: string; genre: string }
+  input: { title: string; genre: string; category: string }
 ): Promise<FlashcardSet> {
   const res = await fetch(`${API_URL}/api/flashcard-sets`, {
     method: "POST",

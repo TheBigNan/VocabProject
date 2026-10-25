@@ -18,6 +18,7 @@ import {
 } from "../api";
 import type { VocabList, FlashcardSet } from "../types";
 import { GENRES } from "../genres";
+import { CATEGORIES, CATEGORY_LABELS, DEFAULT_CATEGORY } from "../categories";
 import { useAuth } from "../auth/AuthContext";
 import { ListForm, type ListFormValues } from "../components/ListForm";
 
@@ -99,6 +100,7 @@ function CreateSetForm({ onCreated }: { onCreated: (set: FlashcardSet) => void }
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [genre, setGenre] = useState<string>(GENRES[0]);
+  const [category, setCategory] = useState<string>(DEFAULT_CATEGORY);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -113,9 +115,14 @@ function CreateSetForm({ onCreated }: { onCreated: (set: FlashcardSet) => void }
     setSubmitting(true);
     try {
       const token = await user.getIdToken();
-      const set = await createFlashcardSet(token, { title: title.trim(), genre });
+      const set = await createFlashcardSet(token, {
+        title: title.trim(),
+        genre,
+        category,
+      });
       setTitle("");
       setGenre(GENRES[0]);
+      setCategory(DEFAULT_CATEGORY);
       setOpen(false);
       onCreated(set);
     } catch (err) {
@@ -150,6 +157,16 @@ function CreateSetForm({ onCreated }: { onCreated: (set: FlashcardSet) => void }
           {GENRES.map((g) => (
             <option key={g} value={g}>
               {g}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="form-field">
+        <span>Section</span>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          {CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
             </option>
           ))}
         </select>
@@ -201,23 +218,55 @@ function FullLibraryView() {
     loadAll();
   }, [user]);
 
-  const byGenre = useMemo(() => {
+  function groupByGenre(items: VocabList[]) {
+    const map = new Map<string, VocabList[]>();
+    for (const list of items) {
+      const key = list.genre || "Other";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(list);
+    }
+    const known = GENRES.filter((g) => map.has(g));
+    const unknown = [...map.keys()].filter(
+      (g) => !(GENRES as readonly string[]).includes(g)
+    );
+    return [...known, ...unknown].map((g) => [g, map.get(g)!] as const);
+  }
+
+  const listsByCategory = useMemo(() => {
     const map = new Map<string, VocabList[]>();
     for (const list of lists) {
-      const key = list.genre || "Other";
+      const key = list.category || DEFAULT_CATEGORY;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(list);
     }
     return map;
   }, [lists]);
 
-  const orderedGenres = useMemo(() => {
-    const known = GENRES.filter((g) => byGenre.has(g));
-    const unknown = [...byGenre.keys()].filter(
-      (g) => !(GENRES as readonly string[]).includes(g)
+  const orderedListCategories = useMemo(() => {
+    const known = CATEGORIES.map((c) => c.value).filter((v) => listsByCategory.has(v));
+    const unknown = [...listsByCategory.keys()].filter(
+      (v) => !CATEGORIES.some((c) => c.value === v)
     );
     return [...known, ...unknown];
-  }, [byGenre]);
+  }, [listsByCategory]);
+
+  const setsByCategory = useMemo(() => {
+    const map = new Map<string, FlashcardSet[]>();
+    for (const set of sets) {
+      const key = set.category || DEFAULT_CATEGORY;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(set);
+    }
+    return map;
+  }, [sets]);
+
+  const orderedSetCategories = useMemo(() => {
+    const known = CATEGORIES.map((c) => c.value).filter((v) => setsByCategory.has(v));
+    const unknown = [...setsByCategory.keys()].filter(
+      (v) => !CATEGORIES.some((c) => c.value === v)
+    );
+    return [...known, ...unknown];
+  }, [setsByCategory]);
 
   async function handleDownload(id: string) {
     if (!user) return;
@@ -334,6 +383,7 @@ function FullLibraryView() {
                         title: editingList.title,
                         creator: editingList.creator,
                         genre: editingList.genre,
+                        category: editingList.category,
                         dateUploaded: editingList.dateUploaded,
                         originalFilename: editingList.originalFilename,
                       }
@@ -349,11 +399,14 @@ function FullLibraryView() {
               </div>
             )}
             {lists.length === 0 && <p>No lists are available yet. Check back soon!</p>}
-            {orderedGenres.map((genre) => (
-              <div key={genre} className="materials-subsection">
-                <h3>{genre}</h3>
-                <div className="list-grid">
-                  {byGenre.get(genre)!.map((list) => (
+            {orderedListCategories.map((catValue) => (
+              <div key={catValue} className="materials-category">
+                <h3>{CATEGORY_LABELS[catValue] ?? catValue}</h3>
+                {groupByGenre(listsByCategory.get(catValue)!).map(([genre, genreLists]) => (
+                  <div key={genre} className="materials-subsection">
+                    <h4>{genre}</h4>
+                    <div className="list-grid">
+                      {genreLists.map((list) => (
                     <article key={list.id} className="list-card">
                       <h3>{list.title}</h3>
                       <p className="list-meta">
@@ -403,8 +456,10 @@ function FullLibraryView() {
                         </>
                       )}
                     </article>
-                  ))}
-                </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             ))}
           </section>
@@ -419,8 +474,11 @@ function FullLibraryView() {
               </div>
             )}
             {sets.length === 0 && <p>No flashcard sets are available yet.</p>}
-            <div className="list-grid">
-              {sets.map((set) => (
+            {orderedSetCategories.map((catValue) => (
+              <div key={catValue} className="materials-category">
+                <h3>{CATEGORY_LABELS[catValue] ?? catValue}</h3>
+                <div className="list-grid">
+                  {setsByCategory.get(catValue)!.map((set) => (
                 <article key={set.id} className="list-card">
                   <h3>{set.title}</h3>
                   <p className="list-meta">
@@ -459,8 +517,10 @@ function FullLibraryView() {
                     </>
                   )}
                 </article>
-              ))}
-            </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </section>
         </>
       )}
