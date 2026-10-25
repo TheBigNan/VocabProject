@@ -352,20 +352,20 @@ function FullLibraryView() {
       </p>
 
       {status === "loaded" && (
-        <div className="materials-category-switcher">
-          <label className="form-field">
-            <span>Section</span>
-            <select
-              value={activeCategory}
-              onChange={(e) => setActiveCategory(e.target.value)}
+        <div className="materials-category-toggle">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              type="button"
+              className={
+                "materials-category-btn" +
+                (activeCategory === c.value ? " active" : "")
+              }
+              onClick={() => setActiveCategory(c.value)}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              {c.label}
+            </button>
+          ))}
         </div>
       )}
 

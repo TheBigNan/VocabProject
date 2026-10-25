@@ -1,5 +1,5 @@
 export const CATEGORIES = [
-  { value: "popular-books", label: "Words from Popular Books" },
+  { value: "popular-books", label: "Vocab from Popular Books" },
   { value: "sat-vocab", label: "SAT Vocab" },
 ] as const;
 
