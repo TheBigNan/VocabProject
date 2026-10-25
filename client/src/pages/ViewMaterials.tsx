@@ -4,6 +4,7 @@ import {
   AuthError,
   authenticatedDownloadUrl,
   createFlashcardSet,
+  createList,
   deleteFlashcardSet,
   deleteList,
   downloadUrl,
@@ -12,10 +13,13 @@ import {
   fetchPreview,
   ForbiddenError,
   setFlashcardSetPublished,
+  setListPublished,
+  updateList,
 } from "../api";
 import type { VocabList, FlashcardSet } from "../types";
 import { GENRES } from "../genres";
 import { useAuth } from "../auth/AuthContext";
+import { ListForm, type ListFormValues } from "../components/ListForm";
 
 type Status = "loading" | "loaded" | "error" | "unauthorized";
 
@@ -174,6 +178,8 @@ function FullLibraryView() {
   const [lists, setLists] = useState<VocabList[]>([]);
   const [sets, setSets] = useState<FlashcardSet[]>([]);
   const [status, setStatus] = useState<Status>("loading");
+  const [listFormOpen, setListFormOpen] = useState(false);
+  const [editingList, setEditingList] = useState<VocabList | null>(null);
 
   function loadAll() {
     if (!user) return;
@@ -231,6 +237,46 @@ function FullLibraryView() {
     }
   }
 
+  function startAddList() {
+    setEditingList(null);
+    setListFormOpen(true);
+  }
+
+  function startEditList(list: VocabList) {
+    setEditingList(list);
+    setListFormOpen(true);
+  }
+
+  function cancelListForm() {
+    setListFormOpen(false);
+    setEditingList(null);
+  }
+
+  async function handleListFormSubmit(values: ListFormValues) {
+    if (!user) return;
+    const token = await user.getIdToken();
+    if (editingList) {
+      const saved = await updateList(token, editingList.id, values);
+      setLists((prev) => prev.map((l) => (l.id === saved.id ? saved : l)));
+    } else {
+      const saved = await createList(token, values);
+      setLists((prev) => [saved, ...prev]);
+    }
+    setListFormOpen(false);
+    setEditingList(null);
+  }
+
+  async function handleTogglePublishList(list: VocabList) {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const updated = await setListPublished(token, list.id, !list.published);
+      setLists((prev) => prev.map((l) => (l.id === list.id ? updated : l)));
+    } catch (err) {
+      if (!(err instanceof ForbiddenError)) loadAll();
+    }
+  }
+
   async function handleDeleteSet(id: string) {
     if (!user) return;
     if (!confirm("Delete this flashcard set and all its cards?")) return;
@@ -277,6 +323,30 @@ function FullLibraryView() {
         <>
           <section className="genre-section">
             <h2>Vocabulary Lists</h2>
+            {isAdmin && (
+              <div className="materials-admin-row">
+                {listFormOpen ? (
+                  <ListForm
+                    key={editingList?.id ?? "new-list"}
+                    editing={
+                      editingList && {
+                        id: editingList.id,
+                        creator: editingList.creator,
+                        genre: editingList.genre,
+                        dateUploaded: editingList.dateUploaded,
+                        originalFilename: editingList.originalFilename,
+                      }
+                    }
+                    onSubmit={handleListFormSubmit}
+                    onCancel={cancelListForm}
+                  />
+                ) : (
+                  <button type="button" className="btn btn-secondary" onClick={startAddList}>
+                    + Add List
+                  </button>
+                )}
+              </div>
+            )}
             {lists.length === 0 && <p>No lists are available yet. Check back soon!</p>}
             {orderedGenres.map((genre) => (
               <div key={genre} className="materials-subsection">
@@ -285,7 +355,17 @@ function FullLibraryView() {
                   {byGenre.get(genre)!.map((list) => (
                     <article key={list.id} className="list-card">
                       <h3>{list.originalFilename}</h3>
-                      <p className="list-meta">By {list.creator}</p>
+                      <p className="list-meta">
+                        By {list.creator}
+                        {isAdmin && (
+                          <>
+                            {" · "}
+                            <span className={list.published ? "badge-published" : "badge-draft"}>
+                              {list.published ? "Published" : "Draft"}
+                            </span>
+                          </>
+                        )}
+                      </p>
                       <p className="list-meta">
                         Uploaded {formatDate(list.dateUploaded)}
                       </p>
@@ -297,13 +377,29 @@ function FullLibraryView() {
                         Download / Print PDF
                       </button>
                       {isAdmin && (
-                        <button
-                          type="button"
-                          className="link-button list-card-delete"
-                          onClick={() => handleDeleteList(list.id)}
-                        >
-                          Delete List
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => startEditList(list)}
+                          >
+                            Edit List
+                          </button>
+                          <button
+                            type="button"
+                            className="link-button"
+                            onClick={() => handleTogglePublishList(list)}
+                          >
+                            {list.published ? "Unpublish" : "Publish"}
+                          </button>
+                          <button
+                            type="button"
+                            className="link-button list-card-delete"
+                            onClick={() => handleDeleteList(list.id)}
+                          >
+                            Delete List
+                          </button>
+                        </>
                       )}
                     </article>
                   ))}

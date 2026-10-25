@@ -8,6 +8,7 @@ export interface VocabList {
   fileUrl: string;
   downloadCount: number;
   isPreview?: boolean;
+  published: boolean;
 }
 
 export interface StatsSummary {

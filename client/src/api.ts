@@ -52,6 +52,84 @@ export async function deleteList(idToken: string, id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete list.");
 }
 
+export interface ListFormInput {
+  creator: string;
+  genre: string;
+  dateUploaded: string;
+  pdf?: File;
+}
+
+function listFormData(input: ListFormInput): FormData {
+  const formData = new FormData();
+  formData.append("creator", input.creator);
+  formData.append("genre", input.genre);
+  formData.append("dateUploaded", input.dateUploaded);
+  if (input.pdf) formData.append("pdf", input.pdf);
+  return formData;
+}
+
+// Admin only.
+export async function createList(
+  idToken: string,
+  input: ListFormInput
+): Promise<VocabList> {
+  const res = await fetch(`${API_URL}/api/lists`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: listFormData(input),
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to add list.");
+  }
+  return res.json();
+}
+
+// Admin only.
+export async function updateList(
+  idToken: string,
+  id: string,
+  input: ListFormInput
+): Promise<VocabList> {
+  const res = await fetch(`${API_URL}/api/lists/${id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: listFormData(input),
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to update list.");
+  }
+  return res.json();
+}
+
+// Admin only.
+export async function setListPublished(
+  idToken: string,
+  id: string,
+  published: boolean
+): Promise<VocabList> {
+  const res = await fetch(`${API_URL}/api/lists/${id}/publish`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ published }),
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (res.status === 403) throw new ForbiddenError("Admins only.");
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || "Failed to update publish status.");
+  }
+  return res.json();
+}
+
 // Admin only.
 export async function fetchStats(idToken: string): Promise<StatsSummary> {
   const res = await fetch(`${API_URL}/api/stats`, {

@@ -79,7 +79,11 @@ yarn seed:preview
 
 This is safe to re-run any time (e.g. to replace the sample content) — it replaces whichever list was previously flagged as the preview.
 
-## 6. Adding a real list
+## 6. Adding, editing, and removing lists
+
+The easiest way: once you're an admin, go to **View Materials** (`/materials`) and use the "+ Add List" button at the top of the Vocabulary Lists section — fill in creator, genre, date, and the PDF. It's created as a **draft**, visible only to admins, so you can double-check it before anyone else sees it; hit **Publish** on the card when it's ready (and **Unpublish** any time to pull it back). Each list card also has an **Edit List** link (change the creator/genre/date, and optionally swap in a new PDF — leave the file field blank to keep the current one) and **Delete List** (removes both the Firestore entry and the PDF file itself). All of this is enforced server-side (`requireAdmin` on every write route in `server/src/routes/lists.ts`), not just hidden in the UI.
+
+There's also a CLI script for bulk or scripted adds, which — unlike the web form — publishes immediately:
 
 ```
 cd server
@@ -93,12 +97,6 @@ yarn add-list ~/Downloads/wonder-vocab.pdf --creator "Mr. Alvarez" --genre "Real
 
 - `--date` is optional and defaults to today.
 - `--genre` can be anything, but stick to one of `Fantasy`, `Adventure / Mystery`, `Science Fiction`, `Realistic Fiction`, `Historical Fiction`, `Nonfiction`, `Other` (see `client/src/genres.ts`) so it groups with the existing sections on the View Materials page instead of getting its own.
-- It uploads the PDF (to Firebase Storage or local disk, whichever is active — same as everything else) and adds the matching entry to Firestore. It'll immediately show up on the View Materials page for logged-in users.
-- To remove one, admins can click "Delete List" right on its card in View Materials (see "Removing a list" below) — no need to go into the Firebase console. There's still no edit command; fix a list by deleting and re-adding it.
-
-## Removing a list
-
-Any admin can delete a list straight from **View Materials** (`/materials`) — a "Delete List" link appears under every list card, admins only. It asks for confirmation, then removes both the Firestore entry and the PDF file itself (Firebase Storage or local disk, whichever is active). This is enforced server-side (`DELETE /api/lists/:id`, admin-only), not just hidden in the UI.
 
 ## 7. Granting admin access
 
@@ -119,6 +117,7 @@ When it's ready, hit **Publish** (next to the set on View Materials, or at the t
 ## Notes / things you can adjust later
 
 - **Genres**: the View Materials page uses a fixed genre list defined in `client/src/genres.ts` (`GENRES` constant) to order sections, for both lists and flashcard sets. Edit that array to add/remove genres.
+- **Lists**: every `lists` Firestore document has a `published` field, same pattern as flashcard sets — new lists (via the web form) start as drafts, visible only to admins, until published; the CLI script (`yarn add-list`) publishes immediately. Reads, edits, and the publish toggle are all admin-gated server-side (`server/src/routes/lists.ts`) the same way flashcard sets are, including the download route itself (a draft list's PDF can't be fetched by a non-admin even with a direct link).
 - **Flashcard sets**: stored as two Firestore collections — `flashcardSets` (one doc per set: title, genre, cardCount, published) and `flashcardSetCards` (one doc per card, with a `setId` field pointing back to its set). See `server/src/routes/flashcardSets.ts`. Reads are open to any logged-in user for published sets; unpublished (draft) sets are only readable by admins, enforced server-side on both the set list and the cards list — not just hidden in the UI. Writes (create/edit/delete set or card, publish/unpublish) require `requireAdmin`, same as the Stats page.
 - **Card types**: every flashcard (personal or in a set) is `"definition"` (word front, definition back), `"picture"` (word front, picture back), or `"picture-picture"` (picture front, picture back — no word). Shared validation and image-upload/cleanup logic lives in `server/src/cardFields.ts`, used by both `server/src/routes/flashcards.ts` (personal) and `flashcardSets.ts` (premade). On the client, the same form and flip-card components (`client/src/components/FlashcardForm.tsx`, `FlashcardTile.tsx`) back both Study Tools and the flashcard-set admin/viewer page.
 - **Statistics**: "site visits" increment once per browser session (tracked via `sessionStorage`) when the app loads. "Downloads" increment each time someone downloads a list PDF, via the `/api/lists/:id/download` endpoint, which redirects to the actual file (local disk or Firebase Storage, whichever is active). Tracking always runs regardless of who's visiting; only *viewing* the numbers (the Stats page, `GET /api/stats`) is restricted to admins.

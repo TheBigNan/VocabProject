@@ -64,6 +64,7 @@ async function seedPreview() {
     fileUrl,
     downloadCount: 0,
     isPreview: true,
+    published: true,
   });
 
   console.log("Preview list created — visible to logged-out visitors.");

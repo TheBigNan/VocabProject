@@ -262,6 +262,7 @@ async function seed() {
       storagePath,
       fileUrl,
       downloadCount: list.downloadCount,
+      published: true,
       seedData: true,
     });
 

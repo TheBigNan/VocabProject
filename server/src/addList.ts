@@ -97,6 +97,7 @@ async function addList() {
     storagePath,
     fileUrl,
     downloadCount: 0,
+    published: true,
   });
 
   console.log(`Added "${originalFilename}" (${genre}, by ${creator}).`);
