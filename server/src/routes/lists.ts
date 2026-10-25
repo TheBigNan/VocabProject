@@ -1,23 +1,17 @@
 import { Router, type Request, type Response } from "express";
-import multer from "multer";
+import express from "express";
 import admin, { db } from "../firebase.js";
 import { requireAuth, requireAdmin, getUserRole } from "../middleware/auth.js";
-import { savePdf, deleteFile } from "../storage.js";
+import {
+  deleteFile,
+  getPdfUploadTarget,
+  writeLocalUpload,
+  makeFilePublic,
+} from "../storage.js";
 import { CATEGORY_VALUES, DEFAULT_CATEGORY } from "../categories.js";
 import type { VocabList } from "../types.js";
 
 const router = Router();
-
-const pdfUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype !== "application/pdf") {
-      return cb(new Error("Only PDF files are allowed."));
-    }
-    cb(null, true);
-  },
-}).single("pdf");
 
 // GET /api/lists - the full library, newest first. Admins see every list,
 // including unpublished drafts; everyone else only sees published ones.
@@ -62,17 +56,78 @@ router.get("/preview", async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/lists - upload a new vocabulary list. Admins only. Created as
-// a draft (published: false) so it isn't visible to members until the
-// admin explicitly publishes it.
-router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res: Response) => {
+// POST /api/lists/upload-url - get a place to PUT a PDF's raw bytes
+// directly (Firebase Storage signed URL, or our own local-upload route
+// in local-disk mode), bypassing Express/Vercel for the file body.
+// Admins only. The client PUTs the file here first, then calls POST /
+// or PUT /:id with the returned storagePath/fileUrl to finish adding
+// or editing a list.
+router.post(
+  "/upload-url",
+  requireAuth,
+  requireAdmin,
+  async (req: Request, res: Response) => {
+    try {
+      const { filename } = req.body as { filename?: string };
+      if (!filename?.trim()) {
+        return res.status(400).json({ error: "filename is required." });
+      }
+      const target = await getPdfUploadTarget(filename.trim());
+      res.json(target);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to prepare upload." });
+    }
+  }
+);
+
+// PUT /api/lists/upload-local/:filename - local-disk-mode counterpart to
+// the signed Firebase Storage URL above. Only used when FIREBASE_STORAGE_
+// BUCKET isn't set (local dev); not subject to Vercel's request body
+// limit since it never runs on Vercel. Admins only.
+router.put(
+  "/upload-local/:filename",
+  requireAuth,
+  requireAdmin,
+  express.raw({ type: "application/pdf", limit: "20mb" }),
+  async (req: Request, res: Response) => {
+    try {
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        return res.status(400).json({ error: "No file data received." });
+      }
+      await writeLocalUpload(req.params.filename, req.body);
+      res.status(204).end();
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Failed to save file." });
+    }
+  }
+);
+
+// POST /api/lists - create a new vocabulary list from an already-uploaded
+// PDF (see POST /upload-url above). Admins only. Created as a draft
+// (published: false) so it isn't visible to members until the admin
+// explicitly publishes it.
+router.post("/", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
-    const { title, creator, genre, category, dateUploaded } = req.body as {
+    const {
+      title,
+      creator,
+      genre,
+      category,
+      dateUploaded,
+      storagePath,
+      fileUrl,
+      originalFilename,
+    } = req.body as {
       title?: string;
       creator?: string;
       genre?: string;
       category?: string;
       dateUploaded?: string;
+      storagePath?: string;
+      fileUrl?: string;
+      originalFilename?: string;
     };
 
     if (!title?.trim()) {
@@ -89,14 +144,11 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
         error: `category must be one of: ${CATEGORY_VALUES.join(", ")}.`,
       });
     }
-    if (!req.file) {
+    if (!storagePath || !fileUrl || !originalFilename) {
       return res.status(400).json({ error: "pdf is required." });
     }
 
-    const { storagePath, fileUrl } = await savePdf(
-      req.file.buffer,
-      req.file.originalname
-    );
+    await makeFilePublic(storagePath);
 
     const data: Omit<VocabList, "id"> = {
       title: title.trim(),
@@ -106,7 +158,7 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
       dateUploaded: dateUploaded
         ? new Date(dateUploaded).toISOString()
         : new Date().toISOString(),
-      originalFilename: req.file.originalname,
+      originalFilename,
       storagePath,
       fileUrl,
       downloadCount: 0,
@@ -123,9 +175,11 @@ router.post("/", requireAuth, requireAdmin, pdfUpload, async (req: Request, res:
 });
 
 // PUT /api/lists/:id - edit a list's metadata and/or replace its PDF.
-// Admins only. Fields are optional — omit what hasn't changed; omitting
-// the PDF keeps the existing file.
-router.put("/:id", requireAuth, requireAdmin, pdfUpload, async (req: Request, res: Response) => {
+// Admins only. Fields are optional — omit what hasn't changed. To
+// replace the PDF, first PUT the new bytes via a target from POST
+// /upload-url, then include its storagePath/fileUrl/originalFilename
+// here; omitting them keeps the existing file.
+router.put("/:id", requireAuth, requireAdmin, async (req: Request, res: Response) => {
   try {
     const docRef = db.collection("lists").doc(req.params.id);
     const doc = await docRef.get();
@@ -134,12 +188,24 @@ router.put("/:id", requireAuth, requireAdmin, pdfUpload, async (req: Request, re
     }
     const existing = doc.data() as VocabList;
 
-    const { title, creator, genre, category, dateUploaded } = req.body as {
+    const {
+      title,
+      creator,
+      genre,
+      category,
+      dateUploaded,
+      storagePath,
+      fileUrl,
+      originalFilename,
+    } = req.body as {
       title?: string;
       creator?: string;
       genre?: string;
       category?: string;
       dateUploaded?: string;
+      storagePath?: string;
+      fileUrl?: string;
+      originalFilename?: string;
     };
 
     if (category !== undefined && !CATEGORY_VALUES.includes(category)) {
@@ -158,17 +224,14 @@ router.put("/:id", requireAuth, requireAdmin, pdfUpload, async (req: Request, re
         : existing.dateUploaded,
     };
 
-    if (req.file) {
+    if (storagePath && fileUrl && originalFilename) {
+      await makeFilePublic(storagePath);
       if (existing.storagePath) {
         await deleteFile(existing.storagePath);
       }
-      const { storagePath, fileUrl } = await savePdf(
-        req.file.buffer,
-        req.file.originalname
-      );
       update.storagePath = storagePath;
       update.fileUrl = fileUrl;
-      update.originalFilename = req.file.originalname;
+      update.originalFilename = originalFilename;
     }
 
     await docRef.update(update);

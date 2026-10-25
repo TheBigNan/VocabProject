@@ -61,15 +61,47 @@ export interface ListFormInput {
   pdf?: File;
 }
 
-function listFormData(input: ListFormInput): FormData {
-  const formData = new FormData();
-  formData.append("title", input.title);
-  formData.append("creator", input.creator);
-  formData.append("genre", input.genre);
-  formData.append("category", input.category);
-  formData.append("dateUploaded", input.dateUploaded);
-  if (input.pdf) formData.append("pdf", input.pdf);
-  return formData;
+interface UploadTarget {
+  uploadUrl: string;
+  storagePath: string;
+  fileUrl: string;
+}
+
+// Asks the server where to PUT a PDF's raw bytes (a short-lived signed
+// Firebase Storage URL, or a local-dev fallback endpoint), then uploads
+// the file directly there. This bypasses our own API for the file body —
+// Vercel's serverless functions cap request bodies at 4.5MB, which a
+// real multi-page vocab-list PDF can easily exceed, so routing the bytes
+// through POST/PUT /api/lists would fail for anything but small files.
+async function uploadListPdf(idToken: string, pdf: File): Promise<UploadTarget> {
+  const urlRes = await fetch(`${API_URL}/api/lists/upload-url`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ filename: pdf.name }),
+  });
+  if (urlRes.status === 401) throw new AuthError("Not authorized.");
+  if (urlRes.status === 403) throw new ForbiddenError("Admins only.");
+  if (!urlRes.ok) throw new Error("Failed to prepare upload.");
+  const target: UploadTarget = await urlRes.json();
+
+  const isDirectToStorage = target.uploadUrl.startsWith("http");
+  const putRes = await fetch(
+    isDirectToStorage ? target.uploadUrl : `${API_URL}${target.uploadUrl}`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/pdf",
+        ...(isDirectToStorage ? {} : { Authorization: `Bearer ${idToken}` }),
+      },
+      body: pdf,
+    }
+  );
+  if (!putRes.ok) throw new Error("Failed to upload PDF.");
+
+  return target;
 }
 
 // Admin only.
@@ -77,10 +109,25 @@ export async function createList(
   idToken: string,
   input: ListFormInput
 ): Promise<VocabList> {
+  if (!input.pdf) throw new Error("A PDF file is required.");
+  const { storagePath, fileUrl } = await uploadListPdf(idToken, input.pdf);
+
   const res = await fetch(`${API_URL}/api/lists`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${idToken}` },
-    body: listFormData(input),
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: input.title,
+      creator: input.creator,
+      genre: input.genre,
+      category: input.category,
+      dateUploaded: input.dateUploaded,
+      storagePath,
+      fileUrl,
+      originalFilename: input.pdf.name,
+    }),
   });
   if (res.status === 401) throw new AuthError("Not authorized.");
   if (res.status === 403) throw new ForbiddenError("Admins only.");
@@ -97,10 +144,26 @@ export async function updateList(
   id: string,
   input: ListFormInput
 ): Promise<VocabList> {
+  const uploaded = input.pdf ? await uploadListPdf(idToken, input.pdf) : null;
+
   const res = await fetch(`${API_URL}/api/lists/${id}`, {
     method: "PUT",
-    headers: { Authorization: `Bearer ${idToken}` },
-    body: listFormData(input),
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: input.title,
+      creator: input.creator,
+      genre: input.genre,
+      category: input.category,
+      dateUploaded: input.dateUploaded,
+      ...(uploaded && {
+        storagePath: uploaded.storagePath,
+        fileUrl: uploaded.fileUrl,
+        originalFilename: input.pdf!.name,
+      }),
+    }),
   });
   if (res.status === 401) throw new AuthError("Not authorized.");
   if (res.status === 403) throw new ForbiddenError("Admins only.");

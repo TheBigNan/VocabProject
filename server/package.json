@@ -10,7 +10,8 @@
     "seed": "tsx src/seed.ts",
     "unseed": "tsx src/unseed.ts",
     "seed:preview": "tsx src/seedPreview.ts",
-    "add-list": "tsx src/addList.ts"
+    "add-list": "tsx src/addList.ts",
+    "setup-storage-cors": "tsx src/setupStorageCors.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -59,6 +59,60 @@ export async function savePdf(
   return saveFile(buffer, originalFilename, "application/pdf", "lists");
 }
 
+export interface UploadTarget extends SavedFile {
+  uploadUrl: string;
+}
+
+// Returns a place the browser can PUT a PDF's raw bytes directly to,
+// bypassing our Express server for the file body entirely (Vercel's
+// serverless functions cap request bodies at 4.5MB, which a real
+// multi-page vocab-list PDF can easily exceed). With Firebase Storage
+// active, that's a short-lived v4 signed URL straight to the bucket; the
+// caller must makeFilePublic() the result after the upload completes,
+// since a signed PUT doesn't carry the public-read ACL the rest of the
+// app relies on. In local-disk mode there's no equivalent external
+// target, so we point back at our own PUT /api/lists/upload-local/:name
+// route, which isn't constrained by Vercel since it only runs locally.
+export async function getPdfUploadTarget(
+  originalFilename: string
+): Promise<UploadTarget> {
+  const filename = `${randomUUID()}-${originalFilename}`;
+
+  if (useFirebaseStorage) {
+    const bucket = admin.storage().bucket();
+    const storagePath = `lists/${filename}`;
+    const [uploadUrl] = await bucket.file(storagePath).getSignedUrl({
+      version: "v4",
+      action: "write",
+      expires: Date.now() + 10 * 60 * 1000,
+      contentType: "application/pdf",
+    });
+    return {
+      uploadUrl,
+      storagePath,
+      fileUrl: `https://storage.googleapis.com/${bucket.name}/${storagePath}`,
+    };
+  }
+
+  return {
+    uploadUrl: `/api/lists/upload-local/${encodeURIComponent(filename)}`,
+    storagePath: `uploads/${filename}`,
+    fileUrl: `/uploads/${filename}`,
+  };
+}
+
+export async function writeLocalUpload(
+  filename: string,
+  buffer: Buffer
+): Promise<void> {
+  fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+}
+
+export async function makeFilePublic(storagePath: string): Promise<void> {
+  if (!useFirebaseStorage) return;
+  await admin.storage().bucket().file(storagePath).makePublic();
+}
+
 export async function deleteFile(storagePath: string): Promise<void> {
   if (useFirebaseStorage) {
     await admin.storage().bucket().file(storagePath).delete({ ignoreNotFound: true });
