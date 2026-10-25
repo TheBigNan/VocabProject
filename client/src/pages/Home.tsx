@@ -35,10 +35,12 @@ export default function Home() {
           </p>
         </div>
         <div className="feature-card">
-          <h3>Free and printable</h3>
+          <h3>Varied Learning Formats</h3>
           <p>
-            Every list is openly accessible as a PDF — download it, print it,
-            and study anywhere.
+            Each word can be viewed as a flashcard, where the front side
+            shows the word and the backside shows the definition,
+            illustration, and example sentences. Words can also be viewed
+            directly on the PDFs which can be downloaded and printed out.
           </p>
         </div>
       </section>
