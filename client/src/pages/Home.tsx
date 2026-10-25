@@ -8,12 +8,13 @@ export default function Home() {
         <p className="hero-subtitle">
           WordWise's mission is to help people learn vocabulary from lists
           built around popular books — each word paired with a detailed
-          picture and an example sentence, so it actually sticks. Every list
-          is completely free to use, download, and print.
+          picture and an example sentence, so it actually sticks. All the
+          materials are free and you can learn the words in two modes:
+          flashcard mode or PDF mode.
         </p>
         <div className="hero-actions">
           <Link to="/materials" className="btn btn-primary">
-            Browse Vocabulary Lists
+            Start Learning Here!
           </Link>
         </div>
       </section>
