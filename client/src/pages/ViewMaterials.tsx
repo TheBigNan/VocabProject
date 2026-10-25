@@ -18,7 +18,7 @@ import {
 } from "../api";
 import type { VocabList, FlashcardSet } from "../types";
 import { GENRES } from "../genres";
-import { CATEGORIES, CATEGORY_LABELS, DEFAULT_CATEGORY } from "../categories";
+import { CATEGORIES, DEFAULT_CATEGORY } from "../categories";
 import { useAuth } from "../auth/AuthContext";
 import { ListForm, type ListFormValues } from "../components/ListForm";
 
@@ -197,6 +197,7 @@ function FullLibraryView() {
   const [status, setStatus] = useState<Status>("loading");
   const [listFormOpen, setListFormOpen] = useState(false);
   const [editingList, setEditingList] = useState<VocabList | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>(DEFAULT_CATEGORY);
 
   function loadAll() {
     if (!user) return;
@@ -242,13 +243,10 @@ function FullLibraryView() {
     return map;
   }, [lists]);
 
-  const orderedListCategories = useMemo(() => {
-    const known = CATEGORIES.map((c) => c.value).filter((v) => listsByCategory.has(v));
-    const unknown = [...listsByCategory.keys()].filter(
-      (v) => !CATEGORIES.some((c) => c.value === v)
-    );
-    return [...known, ...unknown];
-  }, [listsByCategory]);
+  const currentLists = useMemo(
+    () => listsByCategory.get(activeCategory) ?? [],
+    [listsByCategory, activeCategory]
+  );
 
   const setsByCategory = useMemo(() => {
     const map = new Map<string, FlashcardSet[]>();
@@ -260,13 +258,10 @@ function FullLibraryView() {
     return map;
   }, [sets]);
 
-  const orderedSetCategories = useMemo(() => {
-    const known = CATEGORIES.map((c) => c.value).filter((v) => setsByCategory.has(v));
-    const unknown = [...setsByCategory.keys()].filter(
-      (v) => !CATEGORIES.some((c) => c.value === v)
-    );
-    return [...known, ...unknown];
-  }, [setsByCategory]);
+  const currentSets = useMemo(
+    () => setsByCategory.get(activeCategory) ?? [],
+    [setsByCategory, activeCategory]
+  );
 
   async function handleDownload(id: string) {
     if (!user) return;
@@ -356,6 +351,24 @@ function FullLibraryView() {
         Vocabulary lists and flashcard sets, free to use, organized by genre.
       </p>
 
+      {status === "loaded" && (
+        <div className="materials-category-switcher">
+          <label className="form-field">
+            <span>Section</span>
+            <select
+              value={activeCategory}
+              onChange={(e) => setActiveCategory(e.target.value)}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       {status === "loading" && <p>Loading materials...</p>}
       {status === "unauthorized" && (
         <p className="form-message form-error">
@@ -398,70 +411,68 @@ function FullLibraryView() {
                 )}
               </div>
             )}
-            {lists.length === 0 && <p>No lists are available yet. Check back soon!</p>}
-            {orderedListCategories.map((catValue) => (
-              <div key={catValue} className="materials-category">
-                <h3>{CATEGORY_LABELS[catValue] ?? catValue}</h3>
-                {groupByGenre(listsByCategory.get(catValue)!).map(([genre, genreLists]) => (
-                  <div key={genre} className="materials-subsection">
-                    <h4>{genre}</h4>
-                    <div className="list-grid">
-                      {genreLists.map((list) => (
-                    <article key={list.id} className="list-card">
-                      <h3>{list.title}</h3>
-                      <p className="list-meta">
-                        By {list.creator}
+            {currentLists.length === 0 ? (
+              <p>No lists in this section yet.</p>
+            ) : (
+              groupByGenre(currentLists).map(([genre, genreLists]) => (
+                <div key={genre} className="materials-subsection">
+                  <h4>{genre}</h4>
+                  <div className="list-grid">
+                    {genreLists.map((list) => (
+                      <article key={list.id} className="list-card">
+                        <h3>{list.title}</h3>
+                        <p className="list-meta">
+                          By {list.creator}
+                          {isAdmin && (
+                            <>
+                              {" · "}
+                              <span className={list.published ? "badge-published" : "badge-draft"}>
+                                {list.published ? "Published" : "Draft"}
+                              </span>
+                            </>
+                          )}
+                        </p>
+                        <p className="list-meta">
+                          Uploaded {formatDate(list.dateUploaded)}
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => handleDownload(list.id)}
+                        >
+                          Download / Print PDF
+                        </button>
                         {isAdmin && (
                           <>
-                            {" · "}
-                            <span className={list.published ? "badge-published" : "badge-draft"}>
-                              {list.published ? "Published" : "Draft"}
-                            </span>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => startEditList(list)}
+                            >
+                              Edit List
+                            </button>
+                            <button
+                              type="button"
+                              className="link-button"
+                              onClick={() => handleTogglePublishList(list)}
+                            >
+                              {list.published ? "Unpublish" : "Publish"}
+                            </button>
+                            <button
+                              type="button"
+                              className="link-button list-card-delete"
+                              onClick={() => handleDeleteList(list.id)}
+                            >
+                              Delete List
+                            </button>
                           </>
                         )}
-                      </p>
-                      <p className="list-meta">
-                        Uploaded {formatDate(list.dateUploaded)}
-                      </p>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => handleDownload(list.id)}
-                      >
-                        Download / Print PDF
-                      </button>
-                      {isAdmin && (
-                        <>
-                          <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => startEditList(list)}
-                          >
-                            Edit List
-                          </button>
-                          <button
-                            type="button"
-                            className="link-button"
-                            onClick={() => handleTogglePublishList(list)}
-                          >
-                            {list.published ? "Unpublish" : "Publish"}
-                          </button>
-                          <button
-                            type="button"
-                            className="link-button list-card-delete"
-                            onClick={() => handleDeleteList(list.id)}
-                          >
-                            Delete List
-                          </button>
-                        </>
-                      )}
-                    </article>
-                      ))}
-                    </div>
+                      </article>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ))}
+                </div>
+              ))
+            )}
           </section>
 
           <section className="genre-section">
@@ -473,54 +484,52 @@ function FullLibraryView() {
                 />
               </div>
             )}
-            {sets.length === 0 && <p>No flashcard sets are available yet.</p>}
-            {orderedSetCategories.map((catValue) => (
-              <div key={catValue} className="materials-category">
-                <h3>{CATEGORY_LABELS[catValue] ?? catValue}</h3>
-                <div className="list-grid">
-                  {setsByCategory.get(catValue)!.map((set) => (
-                <article key={set.id} className="list-card">
-                  <h3>{set.title}</h3>
-                  <p className="list-meta">
-                    Genre: {set.genre}
+            {currentSets.length === 0 ? (
+              <p>No flashcard sets in this section yet.</p>
+            ) : (
+              <div className="list-grid">
+                {currentSets.map((set) => (
+                  <article key={set.id} className="list-card">
+                    <h3>{set.title}</h3>
+                    <p className="list-meta">
+                      Genre: {set.genre}
+                      {isAdmin && (
+                        <>
+                          {" · "}
+                          <span className={set.published ? "badge-published" : "badge-draft"}>
+                            {set.published ? "Published" : "Draft"}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    <p className="list-meta">
+                      {set.cardCount} {set.cardCount === 1 ? "card" : "cards"}
+                    </p>
+                    <Link to={`/materials/sets/${set.id}`} className="btn btn-secondary">
+                      {set.published ? "Study Set" : "Preview Set"}
+                    </Link>
                     {isAdmin && (
                       <>
-                        {" · "}
-                        <span className={set.published ? "badge-published" : "badge-draft"}>
-                          {set.published ? "Published" : "Draft"}
-                        </span>
+                        <button
+                          type="button"
+                          className="link-button"
+                          onClick={() => handleTogglePublish(set)}
+                        >
+                          {set.published ? "Unpublish" : "Publish"}
+                        </button>
+                        <button
+                          type="button"
+                          className="link-button list-card-delete"
+                          onClick={() => handleDeleteSet(set.id)}
+                        >
+                          Delete Set
+                        </button>
                       </>
                     )}
-                  </p>
-                  <p className="list-meta">
-                    {set.cardCount} {set.cardCount === 1 ? "card" : "cards"}
-                  </p>
-                  <Link to={`/materials/sets/${set.id}`} className="btn btn-secondary">
-                    {set.published ? "Study Set" : "Preview Set"}
-                  </Link>
-                  {isAdmin && (
-                    <>
-                      <button
-                        type="button"
-                        className="link-button"
-                        onClick={() => handleTogglePublish(set)}
-                      >
-                        {set.published ? "Unpublish" : "Publish"}
-                      </button>
-                      <button
-                        type="button"
-                        className="link-button list-card-delete"
-                        onClick={() => handleDeleteSet(set.id)}
-                      >
-                        Delete Set
-                      </button>
-                    </>
-                  )}
-                </article>
-                  ))}
-                </div>
+                  </article>
+                ))}
               </div>
-            ))}
+            )}
           </section>
         </>
       )}

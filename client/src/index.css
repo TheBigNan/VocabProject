@@ -341,15 +341,15 @@ a {
   text-align: center;
 }
 
-.materials-category {
-  margin-top: 1.75rem;
+.materials-category-switcher {
+  margin-bottom: 2rem;
+  max-width: 320px;
 }
 
-.materials-category h3 {
+.materials-category-switcher select {
+  font-size: 1.05rem;
+  font-weight: 600;
   color: var(--color-accent);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: 0.4rem;
-  margin-bottom: 0.25rem;
 }
 
 .materials-subsection {
