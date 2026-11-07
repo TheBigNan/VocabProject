@@ -19,6 +19,8 @@ import type { UserRole } from "../types";
 interface AuthContextValue {
   user: User | null;
   role: UserRole | null;
+  quizHighScore: number;
+  setQuizHighScore: (score: number) => void;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
@@ -30,6 +32,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [quizHighScore, setQuizHighScore] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,13 +47,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const token = await nextUser.getIdToken();
           const profile = await fetchMe(token);
           setRole(profile.role);
+          setQuizHighScore(profile.quizHighScore ?? 0);
         } catch {
           // Role defaults to "member" on the server, so if the lookup
           // fails just assume the non-privileged case rather than blocking.
           setRole("member");
+          setQuizHighScore(0);
         }
       } else {
         setRole(null);
+        setQuizHighScore(0);
       }
       setLoading(false);
     });
@@ -59,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     role,
+    quizHighScore,
+    setQuizHighScore,
     loading,
     signIn: async (email, password) => {
       if (!auth) {

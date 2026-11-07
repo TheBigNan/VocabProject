@@ -352,15 +352,12 @@ function FullLibraryView() {
       </p>
 
       {status === "loaded" && (
-        <div className="materials-category-toggle">
+        <div className="toggle-buttons">
           {CATEGORIES.map((c) => (
             <button
               key={c.value}
               type="button"
-              className={
-                "materials-category-btn" +
-                (activeCategory === c.value ? " active" : "")
-              }
+              className={"toggle-btn" + (activeCategory === c.value ? " active" : "")}
               onClick={() => setActiveCategory(c.value)}
             >
               {c.label}

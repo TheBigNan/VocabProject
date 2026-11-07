@@ -11,8 +11,10 @@ import type { Flashcard } from "../types";
 import { useAuth } from "../auth/AuthContext";
 import { FlashcardTile } from "../components/FlashcardTile";
 import { FlashcardForm, type FlashcardFormValues } from "../components/FlashcardForm";
+import { QuizGame } from "../components/QuizGame";
 
 type Status = "loading" | "loaded" | "error" | "unauthorized";
+type Mode = "cards" | "quiz";
 
 export default function StudyTools() {
   const { user, loading: authLoading } = useAuth();
@@ -20,6 +22,7 @@ export default function StudyTools() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [status, setStatus] = useState<Status>("loading");
   const [editingCard, setEditingCard] = useState<Flashcard | null>(null);
+  const [mode, setMode] = useState<Mode>("cards");
 
   // Refetches the card list. Pass focusId to jump to that card (e.g. one
   // just created or edited); otherwise the current position is kept,
@@ -113,74 +116,113 @@ export default function StudyTools() {
     <div className="page">
       <h1>Study Tools</h1>
       <p className="page-intro">
-        Create flashcards and click one to flip it. Choose word + definition,
-        word + picture, or picture + picture for each card.
+        {mode === "cards"
+          ? "Create flashcards and click one to flip it. Choose word + definition, word + picture, or picture + picture for each card."
+          : "Test yourself with a timed multiple-choice quiz built from your own flashcards."}
       </p>
 
-      <FlashcardForm
-        key={editingCard?.id ?? "new"}
-        editing={
-          editingCard && {
-            id: editingCard.id,
-            word: editingCard.word,
-            cardType: editingCard.cardType,
-            definition: editingCard.definition,
-            hasImage: Boolean(editingCard.imageUrl),
-            hasFrontImage: Boolean(editingCard.frontImageUrl),
-          }
-        }
-        onSubmit={handleFormSubmit}
-        onCancel={() => setEditingCard(null)}
-      />
+      <div className="toggle-buttons">
+        <button
+          type="button"
+          className={"toggle-btn" + (mode === "cards" ? " active" : "")}
+          onClick={() => setMode("cards")}
+        >
+          Flashcards
+        </button>
+        <button
+          type="button"
+          className={"toggle-btn" + (mode === "quiz" ? " active" : "")}
+          onClick={() => setMode("quiz")}
+        >
+          Quiz Game
+        </button>
+      </div>
 
-      <section className="flashcard-section">
-        {status === "loading" && <p>Loading your flashcards...</p>}
-        {status === "unauthorized" && (
-          <p className="form-message form-error">
-            Your session expired. <Link to="/login">Log in again</Link>.
-          </p>
-        )}
-        {status === "error" && (
-          <p className="form-message form-error">
-            Couldn't load your flashcards right now. Please try again later.
-          </p>
-        )}
-        {status === "loaded" && cards.length === 0 && (
-          <p>No flashcards yet — add your first one above.</p>
-        )}
-        {status === "loaded" && currentCard && (
-          <div className="flashcard-viewer">
-            <p className="flashcard-counter">
-              Card {currentIndex + 1} of {cards.length}
+      {mode === "cards" && (
+        <>
+          <FlashcardForm
+            key={editingCard?.id ?? "new"}
+            editing={
+              editingCard && {
+                id: editingCard.id,
+                word: editingCard.word,
+                cardType: editingCard.cardType,
+                definition: editingCard.definition,
+                hasImage: Boolean(editingCard.imageUrl),
+                hasFrontImage: Boolean(editingCard.frontImageUrl),
+              }
+            }
+            onSubmit={handleFormSubmit}
+            onCancel={() => setEditingCard(null)}
+          />
+
+          <section className="flashcard-section">
+            {status === "loading" && <p>Loading your flashcards...</p>}
+            {status === "unauthorized" && (
+              <p className="form-message form-error">
+                Your session expired. <Link to="/login">Log in again</Link>.
+              </p>
+            )}
+            {status === "error" && (
+              <p className="form-message form-error">
+                Couldn't load your flashcards right now. Please try again later.
+              </p>
+            )}
+            {status === "loaded" && cards.length === 0 && (
+              <p>No flashcards yet — add your first one above.</p>
+            )}
+            {status === "loaded" && currentCard && (
+              <div className="flashcard-viewer">
+                <p className="flashcard-counter">
+                  Card {currentIndex + 1} of {cards.length}
+                </p>
+                <FlashcardTile
+                  key={currentCard.id}
+                  card={currentCard}
+                  canManage
+                  onEdit={setEditingCard}
+                  onDelete={handleDelete}
+                />
+                <div className="flashcard-nav">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={goPrev}
+                    disabled={currentIndex === 0}
+                  >
+                    ← Previous
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={goNext}
+                    disabled={currentIndex === cards.length - 1}
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {mode === "quiz" && (
+        <section className="quiz-section">
+          {status === "loading" && <p>Loading your flashcards...</p>}
+          {status === "unauthorized" && (
+            <p className="form-message form-error">
+              Your session expired. <Link to="/login">Log in again</Link>.
             </p>
-            <FlashcardTile
-              key={currentCard.id}
-              card={currentCard}
-              canManage
-              onEdit={setEditingCard}
-              onDelete={handleDelete}
-            />
-            <div className="flashcard-nav">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={goPrev}
-                disabled={currentIndex === 0}
-              >
-                ← Previous
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={goNext}
-                disabled={currentIndex === cards.length - 1}
-              >
-                Next →
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
+          )}
+          {status === "error" && (
+            <p className="form-message form-error">
+              Couldn't load your flashcards right now. Please try again later.
+            </p>
+          )}
+          {status === "loaded" && <QuizGame cards={cards} />}
+        </section>
+      )}
     </div>
   );
 }

@@ -42,6 +42,7 @@ export interface UserProfile {
   email: string | null;
   role: UserRole;
   createdAt: string;
+  quizHighScore?: number;
 }
 
 // A premade flashcard set, created by an admin and usable by everyone once

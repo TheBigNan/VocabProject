@@ -298,6 +298,26 @@ export async function fetchMe(idToken: string): Promise<UserProfile> {
   return res.json();
 }
 
+// Records a Quiz Game score. The server only ever raises the stored high
+// score, so this is safe to call after every run regardless of whether
+// it actually beat the previous best.
+export async function submitQuizScore(
+  idToken: string,
+  score: number
+): Promise<{ quizHighScore: number }> {
+  const res = await fetch(`${API_URL}/api/users/me/quiz-score`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ score }),
+  });
+  if (res.status === 401) throw new AuthError("Not authorized.");
+  if (!res.ok) throw new Error("Failed to save quiz score.");
+  return res.json();
+}
+
 // Premade flashcard sets — readable by any logged-in user (admins also see
 // unpublished drafts), writable by admins only (enforced server-side).
 
